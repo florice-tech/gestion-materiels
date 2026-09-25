@@ -10,10 +10,6 @@ import jakarta.persistence.*;
 public class Materiel {
 
     // ----- Enums -----
-    public enum Categorie {
-        AUDIOVISUEL, ACCESSOIRES, CONNECTIQUE, FOURNITURES
-    }
-
     public enum TypeGestion {
         DURABLE, CONSOMMABLE
     }
@@ -31,8 +27,8 @@ public class Materiel {
     @Column(nullable = false)
     private String designation;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "categorie_id", nullable = false)
     private Categorie categorie;
 
     @Enumerated(EnumType.STRING)

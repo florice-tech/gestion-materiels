@@ -1,7 +1,9 @@
 package com.example.gestionmateriels.service;
 
 import com.example.gestionmateriels.dto.MaterielRequest;
+import com.example.gestionmateriels.model.Categorie;
 import com.example.gestionmateriels.model.Materiel;
+import com.example.gestionmateriels.repository.CategorieRepository;
 import com.example.gestionmateriels.repository.DetailEmpruntRepository;
 import com.example.gestionmateriels.repository.MaterielRepository;
 import org.springframework.stereotype.Service;
@@ -14,11 +16,14 @@ public class MaterielService {
 
     private final MaterielRepository materielRepository;
     private final DetailEmpruntRepository detailEmpruntRepository;
+    private final CategorieRepository categorieRepository;
 
     public MaterielService(MaterielRepository materielRepository,
-                           DetailEmpruntRepository detailEmpruntRepository) {
+                           DetailEmpruntRepository detailEmpruntRepository,
+                           CategorieRepository categorieRepository) {
         this.materielRepository = materielRepository;
         this.detailEmpruntRepository = detailEmpruntRepository;
+        this.categorieRepository = categorieRepository;
     }
 
     /**
@@ -28,16 +33,19 @@ public class MaterielService {
         if (requete.getDesignation() == null || requete.getDesignation().isBlank()) {
             throw new OperationException("La désignation est obligatoire.");
         }
-        if (requete.getCategorie() == null) {
+        if (requete.getCategorieId() == null) {
             throw new OperationException("La catégorie est obligatoire.");
         }
         if (requete.getTypeGestion() == null) {
             throw new OperationException("Le type de gestion (durable/consommable) est obligatoire.");
         }
 
+        Categorie categorie = categorieRepository.findById(requete.getCategorieId())
+                .orElseThrow(() -> new OperationException("Catégorie introuvable (id=" + requete.getCategorieId() + ")."));
+
         Materiel materiel = new Materiel();
         materiel.setDesignation(requete.getDesignation());
-        materiel.setCategorie(requete.getCategorie());
+        materiel.setCategorie(categorie);
         materiel.setTypeGestion(requete.getTypeGestion());
         materiel.setStatut(Materiel.StatutMateriel.DISPONIBLE);
 

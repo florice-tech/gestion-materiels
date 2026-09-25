@@ -1,7 +1,7 @@
 package com.example.gestionmateriels.repository;
 
+import com.example.gestionmateriels.model.Categorie;
 import com.example.gestionmateriels.model.Materiel;
-import com.example.gestionmateriels.model.Materiel.Categorie;
 import com.example.gestionmateriels.model.Materiel.StatutMateriel;
 import com.example.gestionmateriels.model.Materiel.TypeGestion;
 import org.springframework.data.jpa.repository.JpaRepository;
