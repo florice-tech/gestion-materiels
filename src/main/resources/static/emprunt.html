@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nouvel Emprunt - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 font-sans p-6">
+
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-md overflow-hidden border border-slate-200">
+
+        <div class="bg-blue-600 px-6 py-4 text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold">Nouveau Bon d'Emprunt</h1>
+                <p class="text-blue-100 text-sm">Poste de Surveillance</p>
+            </div>
+            <a href="retour.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">
+                Voir les retours
+            </a>
+        </div>
+
+        <form id="empruntForm" class="p-6 space-y-6">
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Délégué / Enseignant</label>
+                    <input type="text" id="delegueNom" placeholder="Nom Prénom"
+                           class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Filière & Niveau</label>
+                    <input type="text" id="filiereNiveau" placeholder="ex: L3 Systèmes d'Information"
+                           class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Salle de cours</label>
+                    <select id="salle" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
+                        <option value="">Sélectionner une salle</option>
+                        <option value="101">Salle 101</option>
+                        <option value="102">Salle 102</option>
+                        <option value="Amphi A">Amphi A</option>
+                        <option value="Labo Info">Labo Informatique</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Agent (vous)</label>
+                <select id="agentSortieId" class="w-full md:w-1/3 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
+                    <option value="">Chargement...</option>
+                </select>
+            </div>
+
+            <hr class="border-slate-200">
+
+            <div>
+                <h2 class="text-md font-semibold text-slate-800 mb-3">Matériel & Fournitures disponibles</h2>
+                <div id="listeMateriel" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <p class="text-sm text-slate-500 italic">Chargement du catalogue...</p>
+                </div>
+            </div>
+
+            <div id="messageZone" class="hidden text-sm rounded-lg p-3"></div>
+
+            <div class="pt-4 flex justify-end space-x-3">
+                <button type="reset" class="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-600 font-medium hover:bg-slate-50">Annuler</button>
+                <button type="submit" class="px-5 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 shadow-sm">Valider l'Emprunt</button>
+            </div>
+
+        </form>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+        let catalogueMateriel = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            chargerAgents();
+            chargerMateriel();
+            document.getElementById('empruntForm').addEventListener('submit', soumettreEmprunt);
+        });
+
+        // Charge la liste des agents dans le menu déroulant
+        async function chargerAgents() {
+            const res = await fetch(`${API_BASE}/agents`);
+            const agents = await res.json();
+            const select = document.getElementById('agentSortieId');
+            select.innerHTML = '<option value="">Sélectionner un agent</option>';
+            agents.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a.id;
+                opt.textContent = `${a.nom} (${a.role})`;
+                select.appendChild(opt);
+            });
+        }
+
+        // Charge le catalogue de matériel sous forme de cases à cocher / compteurs
+        async function chargerMateriel() {
+            const res = await fetch(`${API_BASE}/materiels`);
+            catalogueMateriel = await res.json();
+            const conteneur = document.getElementById('listeMateriel');
+            conteneur.innerHTML = '';
+
+            catalogueMateriel.forEach(m => {
+                const disponible = m.typeGestion === 'DURABLE'
+                    ? m.statut === 'DISPONIBLE'
+                    : m.quantiteStock > 0;
+
+                const bloc = document.createElement('label');
+                bloc.className = `flex justify-between items-center p-3 border rounded-lg text-sm ${
+                    disponible ? 'border-slate-200 hover:bg-slate-50' : 'border-slate-100 bg-slate-50 opacity-50'
+                }`;
+
+                if (m.typeGestion === 'DURABLE') {
+                    bloc.innerHTML = `
+                        <span class="font-medium text-slate-700">${m.designation}</span>
+                        <input type="checkbox" data-id="${m.id}" data-type="DURABLE"
+                               class="materiel-check w-4 h-4 text-blue-600 rounded"
+                               ${disponible ? '' : 'disabled'}>
+                    `;
+                } else {
+                    bloc.innerHTML = `
+                        <span class="font-medium text-slate-700">${m.designation} <span class="text-xs text-slate-400">(stock: ${m.quantiteStock})</span></span>
+                        <input type="number" min="0" max="${m.quantiteStock}" value="0" data-id="${m.id}" data-type="CONSOMMABLE"
+                               class="materiel-qty w-16 text-center border rounded py-1"
+                               ${disponible ? '' : 'disabled'}>
+                    `;
+                }
+                conteneur.appendChild(bloc);
+            });
+        }
+
+        // Construit la liste des articles sélectionnés et envoie la requête
+        async function soumettreEmprunt(e) {
+            e.preventDefault();
+            const messageZone = document.getElementById('messageZone');
+            messageZone.classList.add('hidden');
+
+            const articles = [];
+
+            document.querySelectorAll('.materiel-check:checked').forEach(el => {
+                articles.push({ materielId: parseInt(el.dataset.id), quantite: 1 });
+            });
+            document.querySelectorAll('.materiel-qty').forEach(el => {
+                const qte = parseInt(el.value);
+                if (qte > 0) {
+                    articles.push({ materielId: parseInt(el.dataset.id), quantite: qte });
+                }
+            });
+
+            if (articles.length === 0) {
+                afficherMessage("Sélectionnez au moins un matériel ou une fourniture.", false);
+                return;
+            }
+
+            const payload = {
+                delegueNom: document.getElementById('delegueNom').value,
+                filiereNiveau: document.getElementById('filiereNiveau').value,
+                salle: document.getElementById('salle').value,
+                agentSortieId: parseInt(document.getElementById('agentSortieId').value),
+                articles: articles
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/emprunts`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    afficherMessage(result.message, true);
+                    document.getElementById('empruntForm').reset();
+                    chargerMateriel(); // rafraîchit les statuts/stocks affichés
+                } else {
+                    afficherMessage(result.message, false);
+                }
+            } catch (err) {
+                afficherMessage("Erreur de connexion au serveur.", false);
+            }
+        }
+
+        function afficherMessage(texte, succes) {
+            const zone = document.getElementById('messageZone');
+            zone.textContent = texte;
+            zone.className = `text-sm rounded-lg p-3 ${succes ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`;
+            zone.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
