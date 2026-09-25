@@ -15,9 +15,10 @@
                 <h1 class="text-xl font-bold">Retour & Restitution de Matériel</h1>
                 <p class="text-blue-100 text-sm">Gestion des fiches actives</p>
             </div>
-            <a href="emprunt.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">
-                + Nouvel Emprunt
-            </a>
+            <div class="flex gap-2">
+                <a href="materiel.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Catalogue</a>
+                <a href="emprunt.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">+ Nouvel Emprunt</a>
+            </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -110,7 +111,6 @@
             });
         }
 
-        // Vrai si l'heure actuelle dépasse l'heure de retour prévue, le jour même de la sortie
         function estEnRetard(emprunt) {
             if (!emprunt.heureRetourPrevue) return false;
 
@@ -134,7 +134,6 @@
                 return;
             }
 
-            // Calcule le retard pour chaque emprunt, puis affiche les retards en premier
             const emprunts = result.data.map(item => ({ ...item, enRetard: estEnRetard(item) }));
             emprunts.sort((a, b) => (b.enRetard === a.enRetard) ? 0 : (b.enRetard ? 1 : -1));
 
