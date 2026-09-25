@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historique des Emprunts - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 font-sans p-6">
+
+    <div class="max-w-6xl mx-auto space-y-6">
+
+        <div class="bg-blue-600 p-4 rounded-xl text-white flex justify-between items-center shadow-md">
+            <div>
+                <h1 class="text-xl font-bold">Historique des Emprunts</h1>
+                <p class="text-blue-100 text-sm">Journal complet des mouvements de matériel</p>
+            </div>
+            <div class="flex gap-2">
+                <a href="materiel.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Catalogue</a>
+                <a href="emprunt.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Emprunts</a>
+                <a href="retour.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Retours</a>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div class="flex flex-col md:flex-row gap-3 mb-4">
+                <input type="text" id="filtreNom" placeholder="Rechercher un délégué..."
+                       class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <select id="filtreStatut" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <option value="">Tous les statuts</option>
+                    <option value="EN_COURS">En cours</option>
+                    <option value="BON_ETAT">Bon état</option>
+                    <option value="A_VERIFIER">À vérifier</option>
+                    <option value="ENDOMMAGE">Endommagé</option>
+                    <option value="VIDE_EPUICE">Vide / Épuisé</option>
+                </select>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-slate-500 text-xs uppercase">
+                            <th class="py-2 pr-4">Délégué</th>
+                            <th class="py-2 pr-4">Filière</th>
+                            <th class="py-2 pr-4">Salle</th>
+                            <th class="py-2 pr-4">Sortie</th>
+                            <th class="py-2 pr-4">Agent sortie</th>
+                            <th class="py-2 pr-4">Retour</th>
+                            <th class="py-2 pr-4">Agent retour</th>
+                            <th class="py-2 pr-4">État</th>
+                            <th class="py-2">Observations</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpsTableau">
+                        <tr><td colspan="9" class="py-4 text-center text-slate-500 italic">Chargement...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+        let toutHistorique = [];
+
+        const LABELS_ETAT = {
+            BON_ETAT: { texte: '🟢 Bon état', classe: 'bg-green-100 text-green-700' },
+            A_VERIFIER: { texte: '🟡 À vérifier', classe: 'bg-amber-100 text-amber-700' },
+            ENDOMMAGE: { texte: '🔴 Endommagé', classe: 'bg-red-100 text-red-700' },
+            VIDE_EPUICE: { texte: '⚫ Vide/Épuisé', classe: 'bg-slate-200 text-slate-600' }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            chargerHistorique();
+            document.getElementById('filtreNom').addEventListener('input', appliquerFiltres);
+            document.getElementById('filtreStatut').addEventListener('change', appliquerFiltres);
+        });
+
+        async function chargerHistorique() {
+            const res = await fetch(`${API_BASE}/emprunts/historique`);
+            const result = await res.json();
+            toutHistorique = result.success ? result.data : [];
+            afficherLignes(toutHistorique);
+        }
+
+        function appliquerFiltres() {
+            const nom = document.getElementById('filtreNom').value.toLowerCase();
+            const statut = document.getElementById('filtreStatut').value;
+
+            const filtres = toutHistorique.filter(e => {
+                const correspondNom = e.delegueNom.toLowerCase().includes(nom);
+                const estEnCours = !e.dateRetour;
+                const correspondStatut = !statut
+                    || (statut === 'EN_COURS' && estEnCours)
+                    || e.etatRetour === statut;
+                return correspondNom && correspondStatut;
+            });
+
+            afficherLignes(filtres);
+        }
+
+        function afficherLignes(liste) {
+            const corps = document.getElementById('corpsTableau');
+            corps.innerHTML = '';
+
+            if (liste.length === 0) {
+                corps.innerHTML = '<tr><td colspan="9" class="py-4 text-center text-slate-500 italic">Aucun résultat.</td></tr>';
+                return;
+            }
+
+            liste.forEach(e => {
+                const dateSortie = new Date(e.dateSortie).toLocaleString('fr-FR');
+                const dateRetour = e.dateRetour ? new Date(e.dateRetour).toLocaleString('fr-FR') : '—';
+                const agentRetour = e.agentRetour ? e.agentRetour.nom : '—';
+
+                let etatAffiche = '<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">En cours</span>';
+                if (e.etatRetour) {
+                    const info = LABELS_ETAT[e.etatRetour] || { texte: e.etatRetour, classe: 'bg-slate-100 text-slate-600' };
+                    etatAffiche = `<span class="text-xs font-semibold px-2 py-0.5 rounded-full ${info.classe}">${info.texte}</span>`;
+                }
+
+                const ligne = document.createElement('tr');
+                ligne.className = "border-b border-slate-100 hover:bg-slate-50";
+                ligne.innerHTML = `
+                    <td class="py-2 pr-4 font-medium text-slate-800">${e.delegueNom}</td>
+                    <td class="py-2 pr-4 text-slate-600">${e.filiereNiveau}</td>
+                    <td class="py-2 pr-4 text-slate-600">${e.salle}</td>
+                    <td class="py-2 pr-4 text-slate-500 text-xs">${dateSortie}</td>
+                    <td class="py-2 pr-4 text-slate-600">${e.agentSortie.nom}</td>
+                    <td class="py-2 pr-4 text-slate-500 text-xs">${dateRetour}</td>
+                    <td class="py-2 pr-4 text-slate-600">${agentRetour}</td>
+                    <td class="py-2 pr-4">${etatAffiche}</td>
+                    <td class="py-2 text-slate-500 text-xs">${e.observations || '—'}</td>
+                `;
+                corps.appendChild(ligne);
+            });
+        }
+    </script>
+</body>
+</html>
