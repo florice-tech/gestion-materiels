@@ -16,8 +16,9 @@
                 <p class="text-blue-100 text-sm">Journal complet des mouvements de matériel</p>
             </div>
             <div class="flex gap-2">
+                <a href="accueil-agent.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Accueil</a>
                 <a href="materiel.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Catalogue</a>
-                <a href="emprunt.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Emprunts</a>
+                <a href="emprunt.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Demandes</a>
                 <a href="retour.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Retours</a>
             </div>
         </div>
@@ -32,7 +33,7 @@
                     <option value="BON_ETAT">Bon état</option>
                     <option value="A_VERIFIER">À vérifier</option>
                     <option value="ENDOMMAGE">Endommagé</option>
-                    <option value="VIDE_EPUICE">Vide / Épuisé</option>
+                    <option value="VIDE_EPUISE">Vide / Épuisé</option>
                 </select>
             </div>
 
@@ -67,7 +68,7 @@
             BON_ETAT: { texte: '🟢 Bon état', classe: 'bg-green-100 text-green-700' },
             A_VERIFIER: { texte: '🟡 À vérifier', classe: 'bg-amber-100 text-amber-700' },
             ENDOMMAGE: { texte: '🔴 Endommagé', classe: 'bg-red-100 text-red-700' },
-            VIDE_EPUICE: { texte: '⚫ Vide/Épuisé', classe: 'bg-slate-200 text-slate-600' }
+            VIDE_EPUISE: { texte: '⚫ Vide/Épuisé', classe: 'bg-slate-200 text-slate-600' }
         };
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -88,7 +89,8 @@
             const statut = document.getElementById('filtreStatut').value;
 
             const filtres = toutHistorique.filter(e => {
-                const correspondNom = e.delegueNom.toLowerCase().includes(nom);
+                const nomDelegue = e.delegue ? e.delegue.nom.toLowerCase() : '';
+                const correspondNom = nomDelegue.includes(nom);
                 const estEnCours = !e.dateRetour;
                 const correspondStatut = !statut
                     || (statut === 'EN_COURS' && estEnCours)
@@ -112,6 +114,9 @@
                 const dateSortie = new Date(e.dateSortie).toLocaleString('fr-FR');
                 const dateRetour = e.dateRetour ? new Date(e.dateRetour).toLocaleString('fr-FR') : '—';
                 const agentRetour = e.agentRetour ? e.agentRetour.nom : '—';
+                const agentSortie = e.agentSortie ? e.agentSortie.nom : '—';
+                const nomDelegue = e.delegue ? e.delegue.nom : '—';
+                const filiere = e.delegue ? e.delegue.filiereNiveau : '—';
 
                 let etatAffiche = '<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">En cours</span>';
                 if (e.etatRetour) {
@@ -122,11 +127,11 @@
                 const ligne = document.createElement('tr');
                 ligne.className = "border-b border-slate-100 hover:bg-slate-50";
                 ligne.innerHTML = `
-                    <td class="py-2 pr-4 font-medium text-slate-800">${e.delegueNom}</td>
-                    <td class="py-2 pr-4 text-slate-600">${e.filiereNiveau}</td>
+                    <td class="py-2 pr-4 font-medium text-slate-800">${nomDelegue}</td>
+                    <td class="py-2 pr-4 text-slate-600">${filiere}</td>
                     <td class="py-2 pr-4 text-slate-600">${e.salle}</td>
                     <td class="py-2 pr-4 text-slate-500 text-xs">${dateSortie}</td>
-                    <td class="py-2 pr-4 text-slate-600">${e.agentSortie.nom}</td>
+                    <td class="py-2 pr-4 text-slate-600">${agentSortie}</td>
                     <td class="py-2 pr-4 text-slate-500 text-xs">${dateRetour}</td>
                     <td class="py-2 pr-4 text-slate-600">${agentRetour}</td>
                     <td class="py-2 pr-4">${etatAffiche}</td>

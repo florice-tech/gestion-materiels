@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 font-sans min-h-screen flex items-center justify-center p-6">
+
+    <div class="max-w-md w-full bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+
+        <div class="bg-blue-600 px-6 py-5 text-white text-center">
+            <h1 class="text-xl font-bold">Gestion des Emprunts de Matériel</h1>
+            <p class="text-blue-100 text-sm mt-1">Connexion</p>
+        </div>
+
+        <div class="p-6 space-y-5">
+
+            <div class="flex rounded-lg border border-slate-200 overflow-hidden">
+                <button id="ongletAgent" class="flex-1 py-2 text-sm font-medium bg-blue-600 text-white transition">
+                    Je suis Agent
+                </button>
+                <button id="ongletDelegue" class="flex-1 py-2 text-sm font-medium bg-white text-slate-600 transition">
+                    Je suis Délégué
+                </button>
+            </div>
+
+            <form id="formConnexion" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Identifiant</label>
+                    <input type="text" id="identifiant" placeholder="ex: mdaniel"
+                           class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Mot de passe</label>
+                    <input type="password" id="motDePasse"
+                           class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
+                </div>
+
+                <div id="messageZone" class="hidden text-sm rounded-lg p-3"></div>
+
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm">
+                    Se connecter
+                </button>
+            </form>
+
+            <p id="lienInscription" class="text-center text-sm text-slate-500">
+                Pas encore de compte ? <a href="inscription-delegue.html" class="text-blue-600 hover:underline font-medium">Créer un compte délégué</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+        let profilChoisi = 'AGENT'; // ou 'DELEGUE'
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('ongletAgent').addEventListener('click', () => choisirProfil('AGENT'));
+            document.getElementById('ongletDelegue').addEventListener('click', () => choisirProfil('DELEGUE'));
+            document.getElementById('formConnexion').addEventListener('submit', seConnecter);
+        });
+
+        function choisirProfil(profil) {
+            profilChoisi = profil;
+            const btnAgent = document.getElementById('ongletAgent');
+            const btnDelegue = document.getElementById('ongletDelegue');
+            const lienInscription = document.getElementById('lienInscription');
+
+            if (profil === 'AGENT') {
+                btnAgent.className = "flex-1 py-2 text-sm font-medium bg-blue-600 text-white transition";
+                btnDelegue.className = "flex-1 py-2 text-sm font-medium bg-white text-slate-600 transition";
+                lienInscription.classList.add('hidden');
+            } else {
+                btnAgent.className = "flex-1 py-2 text-sm font-medium bg-white text-slate-600 transition";
+                btnDelegue.className = "flex-1 py-2 text-sm font-medium bg-blue-600 text-white transition";
+                lienInscription.classList.remove('hidden');
+            }
+        }
+
+        async function seConnecter(e) {
+            e.preventDefault();
+            const messageZone = document.getElementById('messageZone');
+            messageZone.classList.add('hidden');
+
+            const payload = {
+                identifiant: document.getElementById('identifiant').value,
+                motDePasse: document.getElementById('motDePasse').value
+            };
+
+            const route = profilChoisi === 'AGENT' ? '/auth/agent/login' : '/auth/delegue/login';
+
+            try {
+                const res = await fetch(`${API_BASE}${route}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    // Mémorise la session dans le navigateur
+                    localStorage.setItem('utilisateurConnecte', JSON.stringify(result));
+
+                    // Redirige selon le profil
+                    if (result.type === 'AGENT') {
+                        window.location.href = 'accueil-agent.html';
+                    } else {
+                        window.location.href = 'accueil-delegue.html';
+                    }
+                } else {
+                    afficherMessage(result.message, false);
+                }
+            } catch (err) {
+                afficherMessage("Erreur de connexion au serveur.", false);
+            }
+        }
+
+        function afficherMessage(texte, succes) {
+            const zone = document.getElementById('messageZone');
+            zone.textContent = texte;
+            zone.className = `text-sm rounded-lg p-3 ${succes ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`;
+            zone.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

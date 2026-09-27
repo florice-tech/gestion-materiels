@@ -16,8 +16,10 @@
                 <p class="text-blue-100 text-sm">Gestion des fiches actives</p>
             </div>
             <div class="flex gap-2">
+                <a href="accueil-agent.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Accueil</a>
                 <a href="materiel.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Catalogue</a>
-                <a href="emprunt.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">+ Nouvel Emprunt</a>
+                <a href="emprunt.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Demandes</a>
+                <a href="historique.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Historique</a>
             </div>
         </div>
 
@@ -111,6 +113,8 @@
             });
         }
 
+        // Vrai si l'échéance de retour est dépassée : soit le jour même après l'heure prévue,
+        // soit un jour ultérieur au jour de sortie (peu importe l'heure).
         function estEnRetard(emprunt) {
             if (!emprunt.heureRetourPrevue) return false;
 
@@ -120,7 +124,13 @@
             const echeance = new Date(dateSortie);
             echeance.setHours(heures, minutes, 0, 0);
 
-            return new Date() > echeance;
+            const maintenant = new Date();
+            const memeJour = maintenant.toDateString() === dateSortie.toDateString();
+
+            if (memeJour) {
+                return maintenant > echeance;
+            }
+            return maintenant > dateSortie;
         }
 
         async function chargerEmpruntsActifs() {
@@ -134,10 +144,23 @@
                 return;
             }
 
-            const emprunts = result.data.map(item => ({ ...item, enRetard: estEnRetard(item) }));
+            // Ne montrer que les emprunts VALIDÉS (EN_COURS) : un retour ne peut concerner
+            // que du matériel effectivement remis, pas une simple demande en attente.
+            const enCours = result.data.filter(e => e.statutEmprunt === 'EN_COURS');
+
+            if (enCours.length === 0) {
+                conteneur.innerHTML = '<p class="text-sm text-slate-500 italic p-2">Aucun emprunt en cours.</p>';
+                return;
+            }
+
+            const emprunts = enCours.map(item => ({ ...item, enRetard: estEnRetard(item) }));
             emprunts.sort((a, b) => (b.enRetard === a.enRetard) ? 0 : (b.enRetard ? 1 : -1));
 
             emprunts.forEach(item => {
+                const nomDelegue = item.delegue ? item.delegue.nom : '—';
+                const filiere = item.delegue ? item.delegue.filiereNiveau : '—';
+                const agentSortie = item.agentSortie ? item.agentSortie.nom : '—';
+
                 const card = document.createElement('div');
                 card.className = `p-3 border rounded-lg cursor-pointer transition text-sm space-y-1 ${
                     item.enRetard
@@ -151,11 +174,11 @@
 
                 card.innerHTML = `
                     <div class="flex justify-between items-start">
-                        <div class="font-semibold text-slate-800">${item.delegueNom}</div>
+                        <div class="font-semibold text-slate-800">${nomDelegue}</div>
                         ${item.enRetard ? '<span class="text-[10px] font-bold text-white bg-red-600 px-2 py-0.5 rounded-full">EN RETARD</span>' : ''}
                     </div>
-                    <div class="text-xs text-slate-500">${item.filiereNiveau} — <span class="font-bold text-blue-600">${item.salle}</span></div>
-                    <div class="text-[11px] text-slate-400">Sorti le ${dateSortie} (remis par ${item.agentSortie.nom})</div>
+                    <div class="text-xs text-slate-500">${filiere} — <span class="font-bold text-blue-600">${item.salle}</span></div>
+                    <div class="text-[11px] text-slate-400">Sorti le ${dateSortie} (remis par ${agentSortie})</div>
                     ${heurePrevue ? `<div class="text-[11px] ${item.enRetard ? 'text-red-600 font-semibold' : 'text-slate-400'}">Retour prévu : ${heurePrevue}</div>` : ''}
                 `;
                 conteneur.appendChild(card);
@@ -166,8 +189,12 @@
             document.getElementById('emptyState').classList.add('hidden');
             document.getElementById('formRetour').classList.remove('hidden');
             document.getElementById('emprunt_id').value = item.id;
-            document.getElementById('recapEmprunteur').innerText = item.delegueNom;
-            document.getElementById('recapDetails').innerText = `${item.filiereNiveau} | Salle : ${item.salle}`;
+
+            const nomDelegue = item.delegue ? item.delegue.nom : '—';
+            const filiere = item.delegue ? item.delegue.filiereNiveau : '—';
+
+            document.getElementById('recapEmprunteur').innerText = nomDelegue;
+            document.getElementById('recapDetails').innerText = `${filiere} | Salle : ${item.salle}`;
 
             const recapRetard = document.getElementById('recapRetard');
             recapRetard.classList.toggle('hidden', !item.enRetard);

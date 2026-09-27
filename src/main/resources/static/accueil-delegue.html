@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Espace - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 font-sans p-6">
+
+    <div class="max-w-3xl mx-auto space-y-6">
+
+        <div class="bg-blue-600 p-4 rounded-xl text-white flex justify-between items-center shadow-md">
+            <div>
+                <h1 id="titreBienvenue" class="text-xl font-bold">Bonjour</h1>
+                <p id="sousTitre" class="text-blue-100 text-sm"></p>
+            </div>
+            <button id="btnDeconnexion" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">
+                Se déconnecter
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+            <a href="demande-emprunt.html" class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition group">
+                <div class="text-3xl mb-2">📤</div>
+                <h2 class="font-bold text-slate-800 group-hover:text-blue-600">Nouvelle demande d'emprunt</h2>
+                <p class="text-sm text-slate-500 mt-1">Choisir du matériel et demander à l'emprunter.</p>
+            </a>
+
+            <a href="mes-emprunts.html" class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition group">
+                <div class="text-3xl mb-2">📋</div>
+                <h2 class="font-bold text-slate-800 group-hover:text-blue-600">Mes emprunts</h2>
+                <p class="text-sm text-slate-500 mt-1">Suivre mes demandes en attente et mon historique.</p>
+            </a>
+
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const session = localStorage.getItem('utilisateurConnecte');
+
+            if (!session) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const utilisateur = JSON.parse(session);
+
+            if (utilisateur.type !== 'DELEGUE') {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            document.getElementById('titreBienvenue').textContent = `Bonjour, ${utilisateur.nom}`;
+            document.getElementById('sousTitre').textContent = utilisateur.filiereNiveau;
+
+            document.getElementById('btnDeconnexion').addEventListener('click', () => {
+                localStorage.removeItem('utilisateurConnecte');
+                window.location.href = 'login.html';
+            });
+        });
+    </script>
+</body>
+</html>

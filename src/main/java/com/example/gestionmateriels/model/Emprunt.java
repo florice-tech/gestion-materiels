@@ -21,7 +21,7 @@ public class Emprunt {
     }
 
     public enum EtatRetour {
-        BON_ETAT, A_VERIFIER, ENDOMMAGE, VIDE_EPUICE
+        BON_ETAT, A_VERIFIER, ENDOMMAGE, VIDE_EPUISE
     }
 
     // ----- Attributs -----

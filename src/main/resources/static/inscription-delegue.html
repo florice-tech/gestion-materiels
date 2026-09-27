@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Créer un compte - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 font-sans min-h-screen flex items-center justify-center p-6">
+
+    <div class="max-w-md w-full bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+
+        <div class="bg-blue-600 px-6 py-5 text-white text-center">
+            <h1 class="text-xl font-bold">Créer un compte Délégué</h1>
+            <p class="text-blue-100 text-sm mt-1">Pour demander des emprunts de matériel</p>
+        </div>
+
+        <form id="formInscription" class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Nom complet</label>
+                <input type="text" id="nom" placeholder="Nom Prénom"
+                       class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Filière & Niveau</label>
+                <input type="text" id="filiereNiveau" placeholder="ex: L2 Systèmes d'Information"
+                       class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Identifiant souhaité</label>
+                <input type="text" id="identifiant" placeholder="ex: pkodjo"
+                       class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Mot de passe</label>
+                <input type="password" id="motDePasse" placeholder="4 caractères minimum"
+                       class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
+            </div>
+
+            <div id="messageZone" class="hidden text-sm rounded-lg p-3"></div>
+
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm">
+                Créer mon compte
+            </button>
+
+            <p class="text-center text-sm text-slate-500">
+                Déjà un compte ? <a href="login.html" class="text-blue-600 hover:underline font-medium">Se connecter</a>
+            </p>
+        </form>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+
+        document.getElementById('formInscription').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const messageZone = document.getElementById('messageZone');
+            messageZone.classList.add('hidden');
+
+            const payload = {
+                nom: document.getElementById('nom').value,
+                filiereNiveau: document.getElementById('filiereNiveau').value,
+                identifiant: document.getElementById('identifiant').value,
+                motDePasse: document.getElementById('motDePasse').value
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/auth/delegue/inscription`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+
+                afficherMessage(result.message, result.success);
+                if (result.success) {
+                    setTimeout(() => window.location.href = 'login.html', 1500);
+                }
+            } catch (err) {
+                afficherMessage("Erreur de connexion au serveur.", false);
+            }
+        });
+
+        function afficherMessage(texte, succes) {
+            const zone = document.getElementById('messageZone');
+            zone.textContent = texte;
+            zone.className = `text-sm rounded-lg p-3 ${succes ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`;
+            zone.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

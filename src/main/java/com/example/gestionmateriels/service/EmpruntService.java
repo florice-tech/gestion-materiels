@@ -149,7 +149,7 @@ public class EmpruntService {
                     case BON_ETAT -> Materiel.StatutMateriel.DISPONIBLE;
                     case A_VERIFIER -> Materiel.StatutMateriel.A_VERIFIER;
                     case ENDOMMAGE -> Materiel.StatutMateriel.MAINTENANCE;
-                    case VIDE_EPUICE -> Materiel.StatutMateriel.HS;
+                    case VIDE_EPUISE -> Materiel.StatutMateriel.HS;
                 };
                 materiel.setStatut(nouveauStatut);
                 materielRepository.save(materiel);
