@@ -1,7 +1,8 @@
 package com.example.gestionmateriels.controller;
 
-import com.example.gestionmateriels.dto.EmpruntRequest;
+import com.example.gestionmateriels.dto.DemandeEmpruntRequest;
 import com.example.gestionmateriels.dto.RetourRequest;
+import com.example.gestionmateriels.dto.ValidationRequest;
 import com.example.gestionmateriels.model.Emprunt;
 import com.example.gestionmateriels.service.EmpruntService;
 import com.example.gestionmateriels.service.OperationException;
@@ -27,23 +28,21 @@ public class EmpruntController {
     }
 
     /**
-     * POST /api/emprunts  -> Créer un nouvel emprunt
+     * POST /api/emprunts/demande -> Le délégué crée une demande d'emprunt
      */
-    @PostMapping
-    public ResponseEntity<Map<String, Object>> creerEmprunt(@RequestBody EmpruntRequest requete) {
+    @PostMapping("/demande")
+    public ResponseEntity<Map<String, Object>> demanderEmprunt(@RequestBody DemandeEmpruntRequest requete) {
         try {
-            Emprunt emprunt = empruntService.creerEmprunt(
-                    requete.getDelegueNom(),
-                    requete.getFiliereNiveau(),
+            Emprunt emprunt = empruntService.demanderEmprunt(
+                    requete.getDelegueId(),
                     requete.getSalle(),
-                    requete.getAgentSortieId(),
                     requete.getHeureRetourPrevue(),
                     requete.getArticles()
             );
 
             Map<String, Object> reponse = new HashMap<>();
             reponse.put("success", true);
-            reponse.put("message", "Emprunt enregistré avec succès !");
+            reponse.put("message", "Demande envoyée ! Présentez-vous au poste de surveillance pour récupérer le matériel.");
             reponse.put("empruntId", emprunt.getId());
             return ResponseEntity.ok(reponse);
 
@@ -53,7 +52,25 @@ public class EmpruntController {
     }
 
     /**
-     * POST /api/emprunts/retour  -> Enregistrer le retour d'un emprunt
+     * POST /api/emprunts/valider -> Un agent valide une demande et remet le matériel
+     */
+    @PostMapping("/valider")
+    public ResponseEntity<Map<String, Object>> validerEmprunt(@RequestBody ValidationRequest requete) {
+        try {
+            empruntService.validerEmprunt(requete.getEmpruntId(), requete.getAgentSortieId());
+
+            Map<String, Object> reponse = new HashMap<>();
+            reponse.put("success", true);
+            reponse.put("message", "Emprunt validé, matériel remis au délégué.");
+            return ResponseEntity.ok(reponse);
+
+        } catch (OperationException e) {
+            return erreur(e.getMessage());
+        }
+    }
+
+    /**
+     * POST /api/emprunts/retour -> Enregistrer le retour d'un emprunt
      */
     @PostMapping("/retour")
     public ResponseEntity<Map<String, Object>> enregistrerRetour(@RequestBody RetourRequest requete) {
@@ -76,7 +93,20 @@ public class EmpruntController {
     }
 
     /**
-     * GET /api/emprunts/actifs  -> Liste des emprunts en cours (non rendus)
+     * GET /api/emprunts/en-attente -> Demandes pas encore validées par un agent
+     */
+    @GetMapping("/en-attente")
+    public ResponseEntity<Map<String, Object>> listerDemandesEnAttente() {
+        List<Emprunt> demandes = empruntService.listerDemandesEnAttente();
+
+        Map<String, Object> reponse = new HashMap<>();
+        reponse.put("success", true);
+        reponse.put("data", demandes);
+        return ResponseEntity.ok(reponse);
+    }
+
+    /**
+     * GET /api/emprunts/actifs -> Emprunts non encore rendus (en attente + en cours)
      */
     @GetMapping("/actifs")
     public ResponseEntity<Map<String, Object>> listerEmpruntsActifs() {
@@ -89,7 +119,7 @@ public class EmpruntController {
     }
 
     /**
-     * GET /api/emprunts/historique  -> Historique complet des emprunts
+     * GET /api/emprunts/historique -> Historique complet des emprunts
      */
     @GetMapping("/historique")
     public ResponseEntity<Map<String, Object>> listerHistorique() {
@@ -101,7 +131,6 @@ public class EmpruntController {
         return ResponseEntity.ok(reponse);
     }
 
-    // Construit une réponse d'erreur uniforme (HTTP 400)
     private ResponseEntity<Map<String, Object>> erreur(String message) {
         Map<String, Object> reponse = new HashMap<>();
         reponse.put("success", false);

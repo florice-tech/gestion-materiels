@@ -20,4 +20,7 @@ public interface EmpruntRepository extends JpaRepository<Emprunt, Long> {
 
     // Emprunts remis par un agent donné (traçabilité)
     List<Emprunt> findByAgentSortieId(Long agentId);
+
+    // Demandes en attente de validation par un agent
+    List<Emprunt> findByStatutEmpruntOrderByDateSortieAsc(Emprunt.StatutEmprunt statutEmprunt);
 }

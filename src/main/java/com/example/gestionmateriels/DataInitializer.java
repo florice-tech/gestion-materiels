@@ -2,11 +2,13 @@ package com.example.gestionmateriels;
 
 import com.example.gestionmateriels.model.Agent;
 import com.example.gestionmateriels.model.Categorie;
+import com.example.gestionmateriels.model.Delegue;
 import com.example.gestionmateriels.model.Materiel;
 import com.example.gestionmateriels.model.Materiel.StatutMateriel;
 import com.example.gestionmateriels.model.Materiel.TypeGestion;
 import com.example.gestionmateriels.repository.AgentRepository;
 import com.example.gestionmateriels.repository.CategorieRepository;
+import com.example.gestionmateriels.repository.DelegueRepository;
 import com.example.gestionmateriels.repository.MaterielRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
@@ -20,7 +22,7 @@ public class DataInitializer {
 
     @Bean
     CommandLineRunner initData(AgentRepository agentRepo, MaterielRepository materielRepo,
-                               CategorieRepository categorieRepo) {
+                               CategorieRepository categorieRepo, DelegueRepository delegueRepo) {
         return args -> {
             if (categorieRepo.count() == 0) {
                 categorieRepo.save(new Categorie("AUDIOVISUEL"));
@@ -30,8 +32,12 @@ public class DataInitializer {
             }
 
             if (agentRepo.count() == 0) {
-                agentRepo.save(new Agent("M. Daniel", "Administrateur"));
-                agentRepo.save(new Agent("M. Guillaume", "Surveillant"));
+                agentRepo.save(new Agent("M. Daniel", "Administrateur", "mdaniel", "daniel2026"));
+                agentRepo.save(new Agent("M. Guillaume", "Surveillant", "mguillaume", "guillaume2026"));
+            }
+
+            if (delegueRepo.count() == 0) {
+                delegueRepo.save(new Delegue("Pascal Kodjo", "L2 Economie", "pkodjo", "pascal2026"));
             }
 
             if (materielRepo.count() == 0) {

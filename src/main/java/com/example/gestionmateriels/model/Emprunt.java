@@ -6,14 +6,20 @@ import java.time.LocalTime;
 
 /**
  * Fiche d'emprunt / retour : journal d'audit des mouvements de matériel.
- * Garde l'agent qui a remis le matériel et celui qui l'a réceptionné.
+ * Un délégué crée la demande (statut EN_ATTENTE), un agent la valide et remet
+ * physiquement le matériel (statut EN_COURS), puis un agent enregistre le retour.
  */
 @Entity
 @Table(name = "emprunts")
 public class Emprunt {
 
-    // ----- Enum -----
-    // Note : VIDE_EPUICE conservé tel que demandé (probablement à corriger en VIDE_EPUISE)
+    // ----- Enums -----
+
+    // Étape du cycle de vie de la demande, avant même le retour
+    public enum StatutEmprunt {
+        EN_ATTENTE, EN_COURS
+    }
+
     public enum EtatRetour {
         BON_ETAT, A_VERIFIER, ENDOMMAGE, VIDE_EPUICE
     }
@@ -23,21 +29,24 @@ public class Emprunt {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String delegueNom;
-
-    @Column(nullable = false)
-    private String filiereNiveau;
+    // Le délégué qui a fait la demande (compte réel, plus un simple texte)
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "delegue_id", nullable = false)
+    private Delegue delegue;
 
     @Column(nullable = false)
     private String salle;
 
-    // Agent qui remet le matériel (obligatoire)
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "agent_sortie_id", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private StatutEmprunt statutEmprunt = StatutEmprunt.EN_ATTENTE;
+
+    // Agent qui remet le matériel : optionnel tant que la demande n'est pas validée
+    @ManyToOne
+    @JoinColumn(name = "agent_sortie_id")
     private Agent agentSortie;
 
-    // Date de sortie : renseignée automatiquement à la création
+    // Date de la demande : renseignée automatiquement à la création
     @Column(nullable = false, updatable = false)
     private LocalDateTime dateSortie;
 
@@ -68,12 +77,10 @@ public class Emprunt {
     public Emprunt() {
     }
 
-    public Emprunt(String delegueNom, String filiereNiveau, String salle,
-                   Agent agentSortie, LocalTime heureRetourPrevue) {
-        this.delegueNom = delegueNom;
-        this.filiereNiveau = filiereNiveau;
+    // Constructeur utilisé par le délégué : pas encore d'agent, statut EN_ATTENTE par défaut
+    public Emprunt(Delegue delegue, String salle, LocalTime heureRetourPrevue) {
+        this.delegue = delegue;
         this.salle = salle;
-        this.agentSortie = agentSortie;
         this.heureRetourPrevue = heureRetourPrevue;
     }
 
@@ -86,20 +93,12 @@ public class Emprunt {
         this.id = id;
     }
 
-    public String getDelegueNom() {
-        return delegueNom;
+    public Delegue getDelegue() {
+        return delegue;
     }
 
-    public void setDelegueNom(String delegueNom) {
-        this.delegueNom = delegueNom;
-    }
-
-    public String getFiliereNiveau() {
-        return filiereNiveau;
-    }
-
-    public void setFiliereNiveau(String filiereNiveau) {
-        this.filiereNiveau = filiereNiveau;
+    public void setDelegue(Delegue delegue) {
+        this.delegue = delegue;
     }
 
     public String getSalle() {
@@ -108,6 +107,14 @@ public class Emprunt {
 
     public void setSalle(String salle) {
         this.salle = salle;
+    }
+
+    public StatutEmprunt getStatutEmprunt() {
+        return statutEmprunt;
+    }
+
+    public void setStatutEmprunt(StatutEmprunt statutEmprunt) {
+        this.statutEmprunt = statutEmprunt;
     }
 
     public Agent getAgentSortie() {

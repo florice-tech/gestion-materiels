@@ -3,46 +3,39 @@ package com.example.gestionmateriels.model;
 import jakarta.persistence.*;
 
 /**
- * Agent de surveillance (ou remplaçant) qui remet ou réceptionne le matériel.
- * Sert à la traçabilité : chaque emprunt/retour est lié à un agent.
- * Chaque agent dispose d'un compte (identifiant + mot de passe) pour se connecter.
+ * Compte d'un délégué : peut se connecter et déclarer lui-même une demande d'emprunt.
+ * La demande devra ensuite être validée et remise physiquement par un agent.
  */
 @Entity
-@Table(name = "agents")
-public class Agent {
+@Table(name = "delegues")
+public class Delegue {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY) // Auto-increment
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
     private String nom;
 
-    // Valeur par défaut : "Surveillant"
     @Column(nullable = false)
-    private String role = "Surveillant";
+    private String filiereNiveau;
 
-    // Identifiant de connexion (ex: "mdaniel"), distinct du nom affiché
     @Column(nullable = false, unique = true)
     private String identifiant;
 
-    // Mot de passe (en clair pour l'instant, à hacher plus tard si besoin de plus de sécurité)
     @Column(nullable = false)
     private String motDePasse;
 
-    // Constructeur sans argument (obligatoire pour JPA)
-    public Agent() {
+    public Delegue() {
     }
 
-    // Constructeur avec arguments
-    public Agent(String nom, String role, String identifiant, String motDePasse) {
+    public Delegue(String nom, String filiereNiveau, String identifiant, String motDePasse) {
         this.nom = nom;
-        this.role = role;
+        this.filiereNiveau = filiereNiveau;
         this.identifiant = identifiant;
         this.motDePasse = motDePasse;
     }
 
-    // Getters et Setters
     public Long getId() {
         return id;
     }
@@ -59,12 +52,12 @@ public class Agent {
         this.nom = nom;
     }
 
-    public String getRole() {
-        return role;
+    public String getFiliereNiveau() {
+        return filiereNiveau;
     }
 
-    public void setRole(String role) {
-        this.role = role;
+    public void setFiliereNiveau(String filiereNiveau) {
+        this.filiereNiveau = filiereNiveau;
     }
 
     public String getIdentifiant() {

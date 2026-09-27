@@ -11,4 +11,7 @@ public interface AgentRepository extends JpaRepository<Agent, Long> {
 
     // Retrouver un agent par son nom
     Optional<Agent> findByNom(String nom);
+
+    // Retrouver un agent par son identifiant de connexion
+    Optional<Agent> findByIdentifiant(String identifiant);
 }
