@@ -9,7 +9,6 @@
 <body class="bg-slate-100 font-sans p-6">
 
     <div class="max-w-6xl mx-auto space-y-6">
-
         <div class="bg-blue-600 p-4 rounded-xl text-white flex justify-between items-center shadow-md">
             <div>
                 <h1 class="text-xl font-bold">Historique des Emprunts</h1>
@@ -27,14 +26,6 @@
             <div class="flex flex-col md:flex-row gap-3 mb-4">
                 <input type="text" id="filtreNom" placeholder="Rechercher un délégué..."
                        class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                <select id="filtreStatut" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                    <option value="">Tous les statuts</option>
-                    <option value="EN_COURS">En cours</option>
-                    <option value="BON_ETAT">Bon état</option>
-                    <option value="A_VERIFIER">À vérifier</option>
-                    <option value="ENDOMMAGE">Endommagé</option>
-                    <option value="VIDE_EPUISE">Vide / Épuisé</option>
-                </select>
             </div>
 
             <div class="overflow-x-auto">
@@ -42,18 +33,17 @@
                     <thead>
                         <tr class="border-b border-slate-200 text-slate-500 text-xs uppercase">
                             <th class="py-2 pr-4">Délégué</th>
-                            <th class="py-2 pr-4">Filière</th>
                             <th class="py-2 pr-4">Salle</th>
                             <th class="py-2 pr-4">Sortie</th>
                             <th class="py-2 pr-4">Agent sortie</th>
                             <th class="py-2 pr-4">Retour</th>
                             <th class="py-2 pr-4">Agent retour</th>
-                            <th class="py-2 pr-4">État</th>
+                            <th class="py-2 pr-4">Matériel</th>
                             <th class="py-2">Observations</th>
                         </tr>
                     </thead>
                     <tbody id="corpsTableau">
-                        <tr><td colspan="9" class="py-4 text-center text-slate-500 italic">Chargement...</td></tr>
+                        <tr><td colspan="8" class="py-4 text-center text-slate-500 italic">Chargement...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -65,16 +55,15 @@
         let toutHistorique = [];
 
         const LABELS_ETAT = {
-            BON_ETAT: { texte: '🟢 Bon état', classe: 'bg-green-100 text-green-700' },
-            A_VERIFIER: { texte: '🟡 À vérifier', classe: 'bg-amber-100 text-amber-700' },
-            ENDOMMAGE: { texte: '🔴 Endommagé', classe: 'bg-red-100 text-red-700' },
-            VIDE_EPUISE: { texte: '⚫ Vide/Épuisé', classe: 'bg-slate-200 text-slate-600' }
+            BON_ETAT: { texte: '🟢', classe: 'bg-green-100 text-green-700' },
+            A_VERIFIER: { texte: '🟡', classe: 'bg-amber-100 text-amber-700' },
+            ENDOMMAGE: { texte: '🔴', classe: 'bg-red-100 text-red-700' },
+            VIDE_EPUISE: { texte: '⚫', classe: 'bg-slate-200 text-slate-600' }
         };
 
         document.addEventListener('DOMContentLoaded', () => {
             chargerHistorique();
             document.getElementById('filtreNom').addEventListener('input', appliquerFiltres);
-            document.getElementById('filtreStatut').addEventListener('change', appliquerFiltres);
         });
 
         async function chargerHistorique() {
@@ -86,19 +75,7 @@
 
         function appliquerFiltres() {
             const nom = document.getElementById('filtreNom').value.toLowerCase();
-            const statut = document.getElementById('filtreStatut').value;
-
-            const filtres = toutHistorique.filter(e => {
-                const nomDelegue = e.delegue ? e.delegue.nom.toLowerCase() : '';
-                const correspondNom = nomDelegue.includes(nom);
-                const estEnCours = !e.dateRetour;
-                const correspondStatut = !statut
-                    || (statut === 'EN_COURS' && estEnCours)
-                    || e.etatRetour === statut;
-                return correspondNom && correspondStatut;
-            });
-
-            afficherLignes(filtres);
+            afficherLignes(toutHistorique.filter(e => e.delegue.nom.toLowerCase().includes(nom)));
         }
 
         function afficherLignes(liste) {
@@ -106,7 +83,7 @@
             corps.innerHTML = '';
 
             if (liste.length === 0) {
-                corps.innerHTML = '<tr><td colspan="9" class="py-4 text-center text-slate-500 italic">Aucun résultat.</td></tr>';
+                corps.innerHTML = '<tr><td colspan="8" class="py-4 text-center text-slate-500 italic">Aucun résultat.</td></tr>';
                 return;
             }
 
@@ -115,26 +92,25 @@
                 const dateRetour = e.dateRetour ? new Date(e.dateRetour).toLocaleString('fr-FR') : '—';
                 const agentRetour = e.agentRetour ? e.agentRetour.nom : '—';
                 const agentSortie = e.agentSortie ? e.agentSortie.nom : '—';
-                const nomDelegue = e.delegue ? e.delegue.nom : '—';
-                const filiere = e.delegue ? e.delegue.filiereNiveau : '—';
 
-                let etatAffiche = '<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">En cours</span>';
-                if (e.etatRetour) {
-                    const info = LABELS_ETAT[e.etatRetour] || { texte: e.etatRetour, classe: 'bg-slate-100 text-slate-600' };
-                    etatAffiche = `<span class="text-xs font-semibold px-2 py-0.5 rounded-full ${info.classe}">${info.texte}</span>`;
-                }
+                const materielHtml = e.details.map(d => {
+                    if (!d.etatRetour) {
+                        return `<div>${d.materiel.designation} <span class="text-slate-400">(en cours)</span></div>`;
+                    }
+                    const info = LABELS_ETAT[d.etatRetour] || { texte: '', classe: '' };
+                    return `<div>${info.texte} ${d.materiel.designation}</div>`;
+                }).join('');
 
                 const ligne = document.createElement('tr');
-                ligne.className = "border-b border-slate-100 hover:bg-slate-50";
+                ligne.className = "border-b border-slate-100 hover:bg-slate-50 align-top";
                 ligne.innerHTML = `
-                    <td class="py-2 pr-4 font-medium text-slate-800">${nomDelegue}</td>
-                    <td class="py-2 pr-4 text-slate-600">${filiere}</td>
+                    <td class="py-2 pr-4 font-medium text-slate-800">${e.delegue.nom}<div class="text-xs text-slate-400">${e.delegue.filiereNiveau}</div></td>
                     <td class="py-2 pr-4 text-slate-600">${e.salle}</td>
                     <td class="py-2 pr-4 text-slate-500 text-xs">${dateSortie}</td>
                     <td class="py-2 pr-4 text-slate-600">${agentSortie}</td>
                     <td class="py-2 pr-4 text-slate-500 text-xs">${dateRetour}</td>
                     <td class="py-2 pr-4 text-slate-600">${agentRetour}</td>
-                    <td class="py-2 pr-4">${etatAffiche}</td>
+                    <td class="py-2 pr-4 text-xs">${materielHtml}</td>
                     <td class="py-2 text-slate-500 text-xs">${e.observations || '—'}</td>
                 `;
                 corps.appendChild(ligne);

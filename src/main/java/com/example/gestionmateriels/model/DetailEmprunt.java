@@ -1,11 +1,8 @@
 package com.example.gestionmateriels.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
-/**
- * Ligne de détail d'un emprunt : quel matériel, et en quelle quantité,
- * a été inclus dans une fiche d'emprunt donnée.
- */
 @Entity
 @Table(name = "details_emprunt")
 public class DetailEmprunt {
@@ -14,21 +11,22 @@ public class DetailEmprunt {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // L'emprunt auquel appartient cette ligne
     @ManyToOne(optional = false)
     @JoinColumn(name = "emprunt_id", nullable = false)
+    @JsonIgnore // évite la boucle infinie Emprunt -> details -> emprunt -> details...
     private Emprunt emprunt;
 
-    // Le matériel emprunté
     @ManyToOne(optional = false)
     @JoinColumn(name = "materiel_id", nullable = false)
     private Materiel materiel;
 
-    // Nombre d'unités (1 pour un vidéoprojecteur, 3 pour des marqueurs, etc.)
     @Column(nullable = false)
     private Integer quantite = 1;
 
-    // Constructeurs
+    // État de CE matériel précis au retour (chaque article peut avoir un état différent)
+    @Enumerated(EnumType.STRING)
+    private Emprunt.EtatRetour etatRetour;
+
     public DetailEmprunt() {
     }
 
@@ -38,36 +36,18 @@ public class DetailEmprunt {
         this.quantite = quantite;
     }
 
-    // Getters et Setters
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public Emprunt getEmprunt() { return emprunt; }
+    public void setEmprunt(Emprunt emprunt) { this.emprunt = emprunt; }
 
-    public Emprunt getEmprunt() {
-        return emprunt;
-    }
+    public Materiel getMateriel() { return materiel; }
+    public void setMateriel(Materiel materiel) { this.materiel = materiel; }
 
-    public void setEmprunt(Emprunt emprunt) {
-        this.emprunt = emprunt;
-    }
+    public Integer getQuantite() { return quantite; }
+    public void setQuantite(Integer quantite) { this.quantite = quantite; }
 
-    public Materiel getMateriel() {
-        return materiel;
-    }
-
-    public void setMateriel(Materiel materiel) {
-        this.materiel = materiel;
-    }
-
-    public Integer getQuantite() {
-        return quantite;
-    }
-
-    public void setQuantite(Integer quantite) {
-        this.quantite = quantite;
-    }
+    public Emprunt.EtatRetour getEtatRetour() { return etatRetour; }
+    public void setEtatRetour(Emprunt.EtatRetour etatRetour) { this.etatRetour = etatRetour; }
 }

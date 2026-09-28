@@ -8,9 +8,6 @@ import com.example.gestionmateriels.repository.DetailEmpruntRepository;
 import com.example.gestionmateriels.repository.MaterielRepository;
 import org.springframework.stereotype.Service;
 
-/**
- * Logique métier de gestion du catalogue : ajout et suppression de matériel.
- */
 @Service
 public class MaterielService {
 
@@ -26,9 +23,6 @@ public class MaterielService {
         this.categorieRepository = categorieRepository;
     }
 
-    /**
-     * Ajoute un nouveau matériel au catalogue.
-     */
     public Materiel creerMateriel(MaterielRequest requete) {
         if (requete.getDesignation() == null || requete.getDesignation().isBlank()) {
             throw new OperationException("La désignation est obligatoire.");
@@ -70,9 +64,6 @@ public class MaterielService {
         return materielRepository.save(materiel);
     }
 
-    /**
-     * Supprime un matériel du catalogue, avec les garde-fous nécessaires.
-     */
     public void supprimerMateriel(Long id) {
         Materiel materiel = materielRepository.findById(id)
                 .orElseThrow(() -> new OperationException("Matériel introuvable (id=" + id + ")."));
@@ -86,10 +77,46 @@ public class MaterielService {
         if (aDejaEteEmprunte) {
             throw new OperationException(
                     "Impossible de supprimer \"" + materiel.getDesignation()
-                            + "\" : il possède un historique d'emprunts (nécessaire pour la traçabilité). "
-                            + "Vous pouvez le passer au statut HS à la place.");
+                            + "\" : il possède un historique d'emprunts. Vous pouvez le passer au statut HS à la place.");
         }
 
         materielRepository.delete(materiel);
+    }
+
+    /**
+     * Change manuellement le statut d'un matériel (ex: sortir de MAINTENANCE, passer en HS).
+     * Le statut EMPRUNTE ne peut jamais être forcé manuellement : il ne vient que du cycle d'emprunt réel.
+     */
+    public Materiel changerStatut(Long id, Materiel.StatutMateriel nouveauStatut) {
+        if (nouveauStatut == null) {
+            throw new OperationException("Le nouveau statut est obligatoire.");
+        }
+        Materiel materiel = materielRepository.findById(id)
+                .orElseThrow(() -> new OperationException("Matériel introuvable (id=" + id + ")."));
+
+        if (nouveauStatut == Materiel.StatutMateriel.EMPRUNTE) {
+            throw new OperationException("Le statut EMPRUNTE ne peut être défini que par un emprunt réel.");
+        }
+
+        materiel.setStatut(nouveauStatut);
+        return materielRepository.save(materiel);
+    }
+
+    /**
+     * Ajoute du stock à un consommable (réapprovisionnement).
+     */
+    public Materiel reapprovisionner(Long id, Integer quantiteAjoutee) {
+        if (quantiteAjoutee == null || quantiteAjoutee <= 0) {
+            throw new OperationException("La quantité à ajouter doit être supérieure à zéro.");
+        }
+        Materiel materiel = materielRepository.findById(id)
+                .orElseThrow(() -> new OperationException("Matériel introuvable (id=" + id + ")."));
+
+        if (materiel.getTypeGestion() != Materiel.TypeGestion.CONSOMMABLE) {
+            throw new OperationException("Seuls les consommables peuvent être réapprovisionnés.");
+        }
+
+        materiel.setQuantiteStock(materiel.getQuantiteStock() + quantiteAjoutee);
+        return materielRepository.save(materiel);
     }
 }

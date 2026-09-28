@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nouvelle Demande - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 font-sans p-6">
+
+    <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-md overflow-hidden border border-slate-200">
+
+        <div class="bg-blue-600 px-6 py-4 text-white flex justify-between items-center">
+            <div>
+                <h1 class="text-xl font-bold">Nouvelle Demande d'Emprunt</h1>
+                <p id="sousTitre" class="text-blue-100 text-sm"></p>
+            </div>
+            <a href="accueil-delegue.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Retour</a>
+        </div>
+
+        <form id="demandeForm" class="p-6 space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Salle de cours</label>
+                    <select id="salle" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
+                        <option value="">Sélectionner une salle</option>
+                        <option value="101">Salle 101</option>
+                        <option value="102">Salle 102</option>
+                        <option value="Amphi A">Amphi A</option>
+                        <option value="Labo Info">Labo Informatique</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Heure de retour prévue</label>
+                    <input type="time" id="heureRetourPrevue"
+                           class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+            </div>
+
+            <hr class="border-slate-200">
+
+            <div>
+                <h2 class="text-md font-semibold text-slate-800 mb-3">Matériel & Fournitures disponibles</h2>
+                <div id="listeMateriel" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <p class="text-sm text-slate-500 italic">Chargement...</p>
+                </div>
+            </div>
+
+            <div id="messageZone" class="hidden text-sm rounded-lg p-3"></div>
+
+            <div class="pt-4 flex justify-end">
+                <button type="submit" class="px-5 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 shadow-sm">
+                    Envoyer la demande
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+        let session = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const s = localStorage.getItem('utilisateurConnecte');
+            if (!s) { window.location.href = 'login.html'; return; }
+            session = JSON.parse(s);
+            if (session.type !== 'DELEGUE') { window.location.href = 'login.html'; return; }
+
+            document.getElementById('sousTitre').textContent = `${session.nom} — ${session.filiereNiveau}`;
+            chargerMateriel();
+            document.getElementById('demandeForm').addEventListener('submit', soumettreDemande);
+        });
+
+        async function chargerMateriel() {
+            const res = await fetch(`${API_BASE}/materiels`);
+            const materiels = await res.json();
+            const conteneur = document.getElementById('listeMateriel');
+            conteneur.innerHTML = '';
+
+            materiels.forEach(m => {
+                const disponible = m.typeGestion === 'DURABLE' ? m.statut === 'DISPONIBLE' : m.quantiteStock > 0;
+                const bloc = document.createElement('label');
+                bloc.className = `flex justify-between items-center p-3 border rounded-lg text-sm ${disponible ? 'border-slate-200 hover:bg-slate-50' : 'border-slate-100 bg-slate-50 opacity-50'}`;
+
+                if (m.typeGestion === 'DURABLE') {
+                    bloc.innerHTML = `
+                        <span class="font-medium text-slate-700">${m.designation}</span>
+                        <input type="checkbox" data-id="${m.id}" class="materiel-check w-4 h-4 text-blue-600 rounded" ${disponible ? '' : 'disabled'}>`;
+                } else {
+                    bloc.innerHTML = `
+                        <span class="font-medium text-slate-700">${m.designation} <span class="text-xs text-slate-400">(stock: ${m.quantiteStock})</span></span>
+                        <input type="number" min="0" max="${m.quantiteStock}" value="0" data-id="${m.id}" class="materiel-qty w-16 text-center border rounded py-1" ${disponible ? '' : 'disabled'}>`;
+                }
+                conteneur.appendChild(bloc);
+            });
+        }
+
+        async function soumettreDemande(e) {
+            e.preventDefault();
+            const messageZone = document.getElementById('messageZone');
+            messageZone.classList.add('hidden');
+
+            const articles = [];
+            document.querySelectorAll('.materiel-check:checked').forEach(el => articles.push({ materielId: parseInt(el.dataset.id), quantite: 1 }));
+            document.querySelectorAll('.materiel-qty').forEach(el => {
+                const qte = parseInt(el.value);
+                if (qte > 0) articles.push({ materielId: parseInt(el.dataset.id), quantite: qte });
+            });
+
+            if (articles.length === 0) {
+                afficherMessage("Sélectionnez au moins un matériel.", false);
+                return;
+            }
+
+            const payload = {
+                delegueId: session.id,
+                salle: document.getElementById('salle').value,
+                heureRetourPrevue: document.getElementById('heureRetourPrevue').value || null,
+                articles
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/emprunts/demande`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+                afficherMessage(result.message, result.success);
+                if (result.success) {
+                    document.getElementById('demandeForm').reset();
+                    chargerMateriel();
+                }
+            } catch (err) {
+                afficherMessage("Erreur de connexion au serveur.", false);
+            }
+        }
+
+        function afficherMessage(texte, succes) {
+            const zone = document.getElementById('messageZone');
+            zone.textContent = texte;
+            zone.className = `text-sm rounded-lg p-3 ${succes ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`;
+            zone.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

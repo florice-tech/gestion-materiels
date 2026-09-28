@@ -1,5 +1,6 @@
 package com.example.gestionmateriels.service;
 
+import com.example.gestionmateriels.dto.DetailRetourRequest;
 import com.example.gestionmateriels.model.*;
 import com.example.gestionmateriels.repository.*;
 import org.springframework.stereotype.Service;
@@ -8,14 +9,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalTime;
 import java.util.List;
 
-/**
- * Contient toute la logique métier des emprunts et retours de matériel.
- *
- * Cycle de vie d'un emprunt :
- * 1. Le délégué fait une demande (demanderEmprunt) -> statut EN_ATTENTE, matériel réservé
- * 2. Un agent valide et remet le matériel (validerEmprunt) -> statut EN_COURS
- * 3. Un agent enregistre le retour (enregistrerRetour) -> dateRetour renseignée
- */
 @Service
 public class EmpruntService {
 
@@ -37,16 +30,16 @@ public class EmpruntService {
         this.delegueRepository = delegueRepository;
     }
 
-    /**
-     * ÉTAPE 1 : le délégué fait sa demande en ligne.
-     * Vérifie la disponibilité de chaque article et réserve immédiatement le matériel
-     * (pour éviter que deux délégués demandent le même objet en même temps),
-     * mais aucun agent n'est encore impliqué. Statut : EN_ATTENTE.
-     */
     @Transactional
     public Emprunt demanderEmprunt(Long delegueId, String salle, LocalTime heureRetourPrevue,
                                    List<ArticleEmprunteDTO> articles) {
 
+        if (delegueId == null) {
+            throw new OperationException("Le délégué est obligatoire.");
+        }
+        if (salle == null || salle.isBlank()) {
+            throw new OperationException("La salle est obligatoire.");
+        }
         if (articles == null || articles.isEmpty()) {
             throw new OperationException("Aucun matériel sélectionné pour cette demande.");
         }
@@ -59,20 +52,26 @@ public class EmpruntService {
         empruntRepository.save(emprunt);
 
         for (ArticleEmprunteDTO article : articles) {
+            if (article.getMaterielId() == null) {
+                throw new OperationException("Un matériel de la demande n'a pas d'identifiant valide.");
+            }
+
             Materiel materiel = materielRepository.findById(article.getMaterielId())
                     .orElseThrow(() -> new OperationException("Matériel introuvable (id=" + article.getMaterielId() + ")."));
 
             int quantiteDemandee = article.getQuantite() != null ? article.getQuantite() : 1;
+            if (quantiteDemandee <= 0) {
+                throw new OperationException(
+                        "La quantité demandée pour \"" + materiel.getDesignation() + "\" doit être supérieure à zéro.");
+            }
 
             if (materiel.getTypeGestion() == Materiel.TypeGestion.DURABLE) {
                 if (materiel.getStatut() != Materiel.StatutMateriel.DISPONIBLE) {
                     throw new OperationException(
                             "Le matériel \"" + materiel.getDesignation() + "\" n'est pas disponible actuellement.");
                 }
-                // Réservé dès la demande, pour éviter les doublons entre délégués
                 materiel.setStatut(Materiel.StatutMateriel.EMPRUNTE);
                 materielRepository.save(materiel);
-
             } else {
                 if (materiel.getQuantiteStock() < quantiteDemandee) {
                     throw new OperationException(
@@ -90,12 +89,14 @@ public class EmpruntService {
         return emprunt;
     }
 
-    /**
-     * ÉTAPE 2 : un agent valide la demande et remet physiquement le matériel.
-     * Le matériel a déjà été réservé à l'étape 1, ici on renseigne juste qui a fait la remise.
-     */
     @Transactional
     public Emprunt validerEmprunt(Long empruntId, Long agentSortieId) {
+        if (empruntId == null) {
+            throw new OperationException("L'identifiant de la demande est obligatoire.");
+        }
+        if (agentSortieId == null) {
+            throw new OperationException("L'agent qui remet le matériel est obligatoire.");
+        }
 
         Emprunt emprunt = empruntRepository.findById(empruntId)
                 .orElseThrow(() -> new OperationException("Demande introuvable (id=" + empruntId + ")."));
@@ -115,11 +116,22 @@ public class EmpruntService {
     }
 
     /**
-     * ÉTAPE 3 : enregistre le retour d'un emprunt validé, avec son état.
+     * Enregistre le retour, avec un état déclaré séparément pour chaque article durable de la fiche.
+     * Les consommables n'exigent pas d'état (ils ne sont jamais remis en stock).
      */
     @Transactional
-    public Emprunt enregistrerRetour(Long empruntId, Long agentRetourId,
-                                     Emprunt.EtatRetour etatRetour, String observations) {
+    public Emprunt enregistrerRetour(Long empruntId, Long agentRetourId, String observations,
+                                     List<DetailRetourRequest> etatsDetails) {
+
+        if (empruntId == null) {
+            throw new OperationException("L'identifiant de l'emprunt est obligatoire.");
+        }
+        if (agentRetourId == null) {
+            throw new OperationException("L'agent qui réceptionne est obligatoire.");
+        }
+        if (etatsDetails == null) {
+            throw new OperationException("Aucun état n'a été renseigné pour les matériels retournés.");
+        }
 
         Emprunt emprunt = empruntRepository.findById(empruntId)
                 .orElseThrow(() -> new OperationException("Emprunt introuvable (id=" + empruntId + ")."));
@@ -134,18 +146,38 @@ public class EmpruntService {
         Agent agentRetour = agentRepository.findById(agentRetourId)
                 .orElseThrow(() -> new OperationException("Agent introuvable (id=" + agentRetourId + ")."));
 
-        emprunt.setAgentRetour(agentRetour);
-        emprunt.setDateRetour(java.time.LocalDateTime.now());
-        emprunt.setEtatRetour(etatRetour);
-        emprunt.setObservations(observations);
-        empruntRepository.save(emprunt);
-
         List<DetailEmprunt> details = detailEmpruntRepository.findByEmpruntId(empruntId);
-        for (DetailEmprunt detail : details) {
-            Materiel materiel = detail.getMateriel();
 
+        // Vérifie qu'un état a été fourni pour chaque article DURABLE de la fiche
+        for (DetailEmprunt detail : details) {
+            if (detail.getMateriel().getTypeGestion() == Materiel.TypeGestion.DURABLE) {
+                boolean present = etatsDetails.stream()
+                        .anyMatch(d -> detail.getId().equals(d.getDetailId()));
+                if (!present) {
+                    throw new OperationException(
+                            "L'état de retour de \"" + detail.getMateriel().getDesignation() + "\" est manquant.");
+                }
+            }
+        }
+
+        for (DetailRetourRequest dto : etatsDetails) {
+            if (dto.getDetailId() == null || dto.getEtatRetour() == null) {
+                throw new OperationException("Chaque ligne de retour doit indiquer le matériel et son état.");
+            }
+
+            DetailEmprunt detail = detailEmpruntRepository.findById(dto.getDetailId())
+                    .orElseThrow(() -> new OperationException("Ligne d'emprunt introuvable (id=" + dto.getDetailId() + ")."));
+
+            if (!detail.getEmprunt().getId().equals(empruntId)) {
+                throw new OperationException("Cette ligne ne correspond pas à cet emprunt.");
+            }
+
+            detail.setEtatRetour(dto.getEtatRetour());
+            detailEmpruntRepository.save(detail);
+
+            Materiel materiel = detail.getMateriel();
             if (materiel.getTypeGestion() == Materiel.TypeGestion.DURABLE) {
-                Materiel.StatutMateriel nouveauStatut = switch (etatRetour) {
+                Materiel.StatutMateriel nouveauStatut = switch (dto.getEtatRetour()) {
                     case BON_ETAT -> Materiel.StatutMateriel.DISPONIBLE;
                     case A_VERIFIER -> Materiel.StatutMateriel.A_VERIFIER;
                     case ENDOMMAGE -> Materiel.StatutMateriel.MAINTENANCE;
@@ -156,26 +188,22 @@ public class EmpruntService {
             }
         }
 
+        emprunt.setAgentRetour(agentRetour);
+        emprunt.setDateRetour(java.time.LocalDateTime.now());
+        emprunt.setObservations(observations);
+        empruntRepository.save(emprunt);
+
         return emprunt;
     }
 
-    /**
-     * Liste les demandes en attente de validation par un agent.
-     */
     public List<Emprunt> listerDemandesEnAttente() {
         return empruntRepository.findByStatutEmpruntOrderByDateSortieAsc(Emprunt.StatutEmprunt.EN_ATTENTE);
     }
 
-    /**
-     * Liste les emprunts en cours (validés, non encore rendus).
-     */
     public List<Emprunt> listerEmpruntsActifs() {
         return empruntRepository.findByDateRetourIsNullOrderByDateSortieDesc();
     }
 
-    /**
-     * Liste l'historique complet des emprunts, du plus récent au plus ancien.
-     */
     public List<Emprunt> listerHistorique() {
         return empruntRepository.findAllByOrderByDateSortieDesc();
     }
