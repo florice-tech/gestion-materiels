@@ -1,149 +1,107 @@
 package com.example.gestionmateriels.controller;
 
-import com.example.gestionmateriels.dto.AnnulationRequest;
 import com.example.gestionmateriels.dto.DemandeEmpruntRequest;
+import com.example.gestionmateriels.dto.RefusRequest;
 import com.example.gestionmateriels.dto.RetourRequest;
-import com.example.gestionmateriels.dto.ValidationRequest;
 import com.example.gestionmateriels.model.Emprunt;
+import com.example.gestionmateriels.securite.UtilisateurConnecte;
 import com.example.gestionmateriels.service.EmpruntService;
-import com.example.gestionmateriels.service.OperationException;
-import org.springframework.http.HttpStatus;
+import com.example.gestionmateriels.service.ExportService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.List;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.Map;
 
+/**
+ * Emprunts. Le délégué ou l'agent concerné est toujours celui de la session :
+ * on ne fait jamais confiance à un identifiant envoyé par le navigateur.
+ */
 @RestController
 @RequestMapping("/api/emprunts")
 public class EmpruntController {
 
     private final EmpruntService empruntService;
+    private final ExportService exportService;
 
-    public EmpruntController(EmpruntService empruntService) {
+    public EmpruntController(EmpruntService empruntService, ExportService exportService) {
         this.empruntService = empruntService;
+        this.exportService = exportService;
     }
+
+    // ---------- Délégué ----------
 
     @PostMapping("/demande")
-    public ResponseEntity<Map<String, Object>> demanderEmprunt(@RequestBody DemandeEmpruntRequest requete) {
-        try {
-            Emprunt emprunt = empruntService.demanderEmprunt(
-                    requete.getDelegueId(), requete.getSalle(),
-                    requete.getHeureRetourPrevue(), requete.getArticles()
-            );
-            Map<String, Object> reponse = new HashMap<>();
-            reponse.put("success", true);
-            reponse.put("message", "Demande envoyée ! Présentez-vous au poste de surveillance pour récupérer le matériel.");
-            reponse.put("empruntId", emprunt.getId());
-            return ResponseEntity.ok(reponse);
-        } catch (OperationException e) {
-            return erreur(e.getMessage());
-        }
+    public ResponseEntity<Map<String, Object>> demander(@AuthenticationPrincipal UtilisateurConnecte moi,
+                                                        @RequestBody DemandeEmpruntRequest requete) {
+        Emprunt emprunt = empruntService.demanderEmprunt(moi.getId(), requete.salle(),
+                requete.heureRetourPrevue(), requete.articles());
+        return Reponses.ok("Demande envoyée ! Présentez-vous au poste de surveillance pour récupérer le matériel.",
+                "empruntId", emprunt.getId());
     }
 
-    @PostMapping("/valider")
-    public ResponseEntity<Map<String, Object>> validerEmprunt(@RequestBody ValidationRequest requete) {
-        try {
-            empruntService.validerEmprunt(requete.getEmpruntId(), requete.getAgentSortieId());
-            Map<String, Object> reponse = new HashMap<>();
-            reponse.put("success", true);
-            reponse.put("message", "Emprunt validé, matériel remis au délégué.");
-            return ResponseEntity.ok(reponse);
-        } catch (OperationException e) {
-            return erreur(e.getMessage());
-        }
-    }
-
-    // POST /api/emprunts/{id}/refuser -> un agent refuse une demande en attente (le matériel est libéré)
-    @PostMapping("/{id}/refuser")
-    public ResponseEntity<Map<String, Object>> refuserDemande(@PathVariable Long id) {
-        try {
-            empruntService.annulerDemande(id, null);
-            Map<String, Object> reponse = new HashMap<>();
-            reponse.put("success", true);
-            reponse.put("message", "Demande refusée, le matériel est de nouveau disponible.");
-            return ResponseEntity.ok(reponse);
-        } catch (OperationException e) {
-            return erreur(e.getMessage());
-        }
-    }
-
-    // POST /api/emprunts/{id}/annuler -> le délégué annule sa propre demande en attente
     @PostMapping("/{id}/annuler")
-    public ResponseEntity<Map<String, Object>> annulerDemande(@PathVariable Long id,
-                                                              @RequestBody AnnulationRequest requete) {
-        try {
-            if (requete.getDelegueId() == null) {
-                throw new OperationException("Le délégué est obligatoire.");
-            }
-            empruntService.annulerDemande(id, requete.getDelegueId());
-            Map<String, Object> reponse = new HashMap<>();
-            reponse.put("success", true);
-            reponse.put("message", "Votre demande a été annulée.");
-            return ResponseEntity.ok(reponse);
-        } catch (OperationException e) {
-            return erreur(e.getMessage());
-        }
+    public ResponseEntity<Map<String, Object>> annuler(@AuthenticationPrincipal UtilisateurConnecte moi,
+                                                       @PathVariable Long id) {
+        empruntService.annulerDemande(id, moi.getId());
+        return Reponses.ok("Votre demande a été annulée.");
     }
 
-    @PostMapping("/retour")
-    public ResponseEntity<Map<String, Object>> enregistrerRetour(@RequestBody RetourRequest requete) {
-        try {
-            empruntService.enregistrerRetour(
-                    requete.getEmpruntId(), requete.getAgentRetourId(),
-                    requete.getObservations(), requete.getDetails()
-            );
-            Map<String, Object> reponse = new HashMap<>();
-            reponse.put("success", true);
-            reponse.put("message", "Le retour du matériel a bien été enregistré.");
-            return ResponseEntity.ok(reponse);
-        } catch (OperationException e) {
-            return erreur(e.getMessage());
-        }
+    @GetMapping("/mes-emprunts")
+    public ResponseEntity<Map<String, Object>> mesEmprunts(@AuthenticationPrincipal UtilisateurConnecte moi) {
+        return Reponses.donnees(empruntService.listerEmpruntsDelegue(moi.getId()));
     }
+
+    // ---------- Agent ----------
 
     @GetMapping("/en-attente")
-    public ResponseEntity<Map<String, Object>> listerDemandesEnAttente() {
-        List<Emprunt> demandes = empruntService.listerDemandesEnAttente();
-        Map<String, Object> reponse = new HashMap<>();
-        reponse.put("success", true);
-        reponse.put("data", demandes);
-        return ResponseEntity.ok(reponse);
+    public ResponseEntity<Map<String, Object>> enAttente() {
+        return Reponses.donnees(empruntService.listerDemandesEnAttente());
     }
 
-    @GetMapping("/actifs")
-    public ResponseEntity<Map<String, Object>> listerEmpruntsActifs() {
-        List<Emprunt> emprunts = empruntService.listerEmpruntsActifs();
-        Map<String, Object> reponse = new HashMap<>();
-        reponse.put("success", true);
-        reponse.put("data", emprunts);
-        return ResponseEntity.ok(reponse);
+    @GetMapping("/en-cours")
+    public ResponseEntity<Map<String, Object>> enCours() {
+        return Reponses.donnees(empruntService.listerEmpruntsEnCours());
     }
 
     @GetMapping("/historique")
-    public ResponseEntity<Map<String, Object>> listerHistorique() {
-        List<Emprunt> emprunts = empruntService.listerHistorique();
-        Map<String, Object> reponse = new HashMap<>();
-        reponse.put("success", true);
-        reponse.put("data", emprunts);
-        return ResponseEntity.ok(reponse);
+    public ResponseEntity<Map<String, Object>> historique() {
+        return Reponses.donnees(empruntService.listerHistorique());
     }
 
-    // GET /api/emprunts/delegue/{id} -> demandes et emprunts d'un délégué ("Mes emprunts")
-    @GetMapping("/delegue/{delegueId}")
-    public ResponseEntity<Map<String, Object>> listerEmpruntsDelegue(@PathVariable Long delegueId) {
-        List<Emprunt> emprunts = empruntService.listerEmpruntsDelegue(delegueId);
-        Map<String, Object> reponse = new HashMap<>();
-        reponse.put("success", true);
-        reponse.put("data", emprunts);
-        return ResponseEntity.ok(reponse);
+    @PostMapping("/{id}/valider")
+    public ResponseEntity<Map<String, Object>> valider(@AuthenticationPrincipal UtilisateurConnecte moi,
+                                                       @PathVariable Long id) {
+        empruntService.validerEmprunt(id, moi.getId());
+        return Reponses.ok("Emprunt validé : le matériel est remis au délégué.");
     }
 
-    private ResponseEntity<Map<String, Object>> erreur(String message) {
-        Map<String, Object> reponse = new HashMap<>();
-        reponse.put("success", false);
-        reponse.put("message", message);
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(reponse);
+    @PostMapping("/{id}/refuser")
+    public ResponseEntity<Map<String, Object>> refuser(@AuthenticationPrincipal UtilisateurConnecte moi,
+                                                       @PathVariable Long id,
+                                                       @RequestBody(required = false) RefusRequest requete) {
+        empruntService.refuserDemande(id, moi.getId(), requete != null ? requete.motif() : null);
+        return Reponses.ok("Demande refusée : le matériel est de nouveau disponible.");
+    }
+
+    @PostMapping("/{id}/retour")
+    public ResponseEntity<Map<String, Object>> retour(@AuthenticationPrincipal UtilisateurConnecte moi,
+                                                      @PathVariable Long id,
+                                                      @RequestBody RetourRequest requete) {
+        empruntService.enregistrerRetour(id, moi.getId(), requete.observations(), requete.details());
+        return Reponses.ok("Le retour du matériel a bien été enregistré.");
+    }
+
+    @GetMapping("/export")
+    public ResponseEntity<byte[]> exporter() {
+        String nomFichier = "historique-emprunts-" + LocalDate.now() + ".csv";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + nomFichier + "\"")
+                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
+                .body(exportService.historiqueCsv().getBytes(StandardCharsets.UTF_8));
     }
 }

@@ -3,9 +3,11 @@ package com.example.gestionmateriels.model;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
+
 /**
  * Compte d'un délégué : peut se connecter et déclarer lui-même une demande d'emprunt.
- * La demande devra ensuite être validée et remise physiquement par un agent.
+ * La demande doit ensuite être validée et le matériel remis physiquement par un agent.
  */
 @Entity
 @Table(name = "delegues")
@@ -24,10 +26,23 @@ public class Delegue {
     @Column(nullable = false, unique = true)
     private String identifiant;
 
-    // Jamais renvoyé dans les réponses JSON
+    // Haché avec BCrypt, jamais renvoyé dans les réponses JSON
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(nullable = false)
     private String motDePasse;
+
+    @Column(nullable = false)
+    private boolean actif = true;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime dateCreation;
+
+    @PrePersist
+    protected void onCreate() {
+        if (dateCreation == null) {
+            dateCreation = LocalDateTime.now();
+        }
+    }
 
     public Delegue() {
     }
@@ -39,43 +54,24 @@ public class Delegue {
         this.motDePasse = motDePasse;
     }
 
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public String getNom() { return nom; }
+    public void setNom(String nom) { this.nom = nom; }
 
-    public String getNom() {
-        return nom;
-    }
+    public String getFiliereNiveau() { return filiereNiveau; }
+    public void setFiliereNiveau(String filiereNiveau) { this.filiereNiveau = filiereNiveau; }
 
-    public void setNom(String nom) {
-        this.nom = nom;
-    }
+    public String getIdentifiant() { return identifiant; }
+    public void setIdentifiant(String identifiant) { this.identifiant = identifiant; }
 
-    public String getFiliereNiveau() {
-        return filiereNiveau;
-    }
+    public String getMotDePasse() { return motDePasse; }
+    public void setMotDePasse(String motDePasse) { this.motDePasse = motDePasse; }
 
-    public void setFiliereNiveau(String filiereNiveau) {
-        this.filiereNiveau = filiereNiveau;
-    }
+    public boolean isActif() { return actif; }
+    public void setActif(boolean actif) { this.actif = actif; }
 
-    public String getIdentifiant() {
-        return identifiant;
-    }
-
-    public void setIdentifiant(String identifiant) {
-        this.identifiant = identifiant;
-    }
-
-    public String getMotDePasse() {
-        return motDePasse;
-    }
-
-    public void setMotDePasse(String motDePasse) {
-        this.motDePasse = motDePasse;
-    }
+    public LocalDateTime getDateCreation() { return dateCreation; }
+    public void setDateCreation(LocalDateTime dateCreation) { this.dateCreation = dateCreation; }
 }

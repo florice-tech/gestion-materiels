@@ -3,136 +3,155 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nouvelle Demande - Gestion Matériel</title>
+    <title>Nouvelle demande - Gestion Matériel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="js/commun.js"></script>
 </head>
-<body class="bg-slate-100 font-sans p-6">
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
 
-    <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-md overflow-hidden border border-slate-200">
+    <main class="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
+        <h1 class="text-2xl font-bold text-slate-800">Nouvelle demande d'emprunt</h1>
 
-        <div class="bg-blue-600 px-6 py-4 text-white flex justify-between items-center">
-            <div>
-                <h1 class="text-xl font-bold">Nouvelle Demande d'Emprunt</h1>
-                <p id="sousTitre" class="text-blue-100 text-sm"></p>
-            </div>
-            <a href="accueil-delegue.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Retour</a>
-        </div>
-
-        <form id="demandeForm" class="p-6 space-y-6">
+        <form id="demandeForm" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Salle de cours</label>
-                    <select id="salle" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
-                        <option value="">Sélectionner une salle</option>
-                        <option value="101">Salle 101</option>
-                        <option value="102">Salle 102</option>
-                        <option value="Amphi A">Amphi A</option>
-                        <option value="Labo Info">Labo Informatique</option>
-                    </select>
+                    <label for="salle" class="block text-sm font-medium text-slate-700 mb-1">Salle de cours</label>
+                    <select id="salle" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"></select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Heure de retour prévue</label>
-                    <input type="time" id="heureRetourPrevue"
+                    <label for="heureRetourPrevue" class="block text-sm font-medium text-slate-700 mb-1">Heure de retour prévue</label>
+                    <input type="time" id="heureRetourPrevue" required
                            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <p class="text-xs text-slate-400 mt-1">Le matériel est à rendre le jour même, avant cette heure.</p>
                 </div>
             </div>
 
             <hr class="border-slate-200">
 
-            <div>
-                <h2 class="text-md font-semibold text-slate-800 mb-3">Matériel & Fournitures disponibles</h2>
-                <div id="listeMateriel" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <p class="text-sm text-slate-500 italic">Chargement...</p>
+            <div class="space-y-3">
+                <div class="flex flex-wrap justify-between items-center gap-2">
+                    <h2 class="font-semibold text-slate-800">Matériel disponible</h2>
+                    <input id="recherche" type="search" placeholder="Rechercher..." class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm">
                 </div>
+                <div id="listeMateriel" class="space-y-4"></div>
             </div>
 
-            <div id="messageZone" class="hidden text-sm rounded-lg p-3"></div>
+            <div id="recapitulatif" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-900"></div>
+            <div id="messageZone" class="hidden"></div>
 
-            <div class="pt-4 flex justify-end">
-                <button type="submit" class="px-5 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 shadow-sm">
+            <div class="flex justify-end">
+                <button type="submit" id="btnEnvoyer" class="px-5 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-60 shadow-sm">
                     Envoyer la demande
                 </button>
             </div>
         </form>
-    </div>
+    </main>
 
     <script>
-        const session = exigerSession('DELEGUE');
+        let materiels = [];
+        const selection = new Map(); // materielId -> quantité (conservée quand on filtre)
 
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('sousTitre').textContent = `${session.nom} — ${session.filiereNiveau}`;
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initPage({ type: 'DELEGUE', page: 'demande' });
+            document.getElementById('demandeForm').addEventListener('submit', soumettre);
+            document.getElementById('recherche').addEventListener('input', afficherMateriel);
+            chargerSalles();
             chargerMateriel();
-            document.getElementById('demandeForm').addEventListener('submit', soumettreDemande);
         });
 
-        async function chargerMateriel() {
-            const conteneur = document.getElementById('listeMateriel');
-            let materiels;
-            try {
-                materiels = await appelApi('/materiels');
-            } catch (e) {
-                conteneur.innerHTML = '<p class="text-sm text-red-600">Erreur de connexion au serveur.</p>';
-                return;
-            }
-            conteneur.innerHTML = '';
-
-            if (!Array.isArray(materiels) || materiels.length === 0) {
-                conteneur.innerHTML = '<p class="text-sm text-slate-500 italic">Aucun matériel dans le catalogue.</p>';
-                return;
-            }
-
-            materiels.forEach(m => {
-                const disponible = m.typeGestion === 'DURABLE' ? m.statut === 'DISPONIBLE' : m.quantiteStock > 0;
-                const bloc = document.createElement('label');
-                bloc.className = `flex justify-between items-center p-3 border rounded-lg text-sm ${disponible ? 'border-slate-200 hover:bg-slate-50' : 'border-slate-100 bg-slate-50 opacity-50'}`;
-
-                if (m.typeGestion === 'DURABLE') {
-                    bloc.innerHTML = `
-                        <span class="font-medium text-slate-700">${echapper(m.designation)}${disponible ? '' : ' <span class="text-xs text-slate-400">(indisponible)</span>'}</span>
-                        <input type="checkbox" data-id="${m.id}" class="materiel-check w-4 h-4 text-blue-600 rounded" ${disponible ? '' : 'disabled'}>`;
-                } else {
-                    bloc.innerHTML = `
-                        <span class="font-medium text-slate-700">${echapper(m.designation)} <span class="text-xs text-slate-400">(stock: ${m.quantiteStock})</span></span>
-                        <input type="number" min="0" max="${m.quantiteStock}" value="0" data-id="${m.id}" class="materiel-qty w-16 text-center border rounded py-1" ${disponible ? '' : 'disabled'}>`;
-                }
-                conteneur.appendChild(bloc);
-            });
+        async function chargerSalles() {
+            const salles = await appelApi('/salles');
+            document.getElementById('salle').innerHTML = '<option value="">Sélectionner une salle</option>' +
+                salles.map(s => `<option value="${echapper(s.nom)}">${echapper(s.nom)}</option>`).join('');
         }
 
-        async function soumettreDemande(e) {
-            e.preventDefault();
-            const messageZone = document.getElementById('messageZone');
-            messageZone.classList.add('hidden');
+        async function chargerMateriel() {
+            materiels = await appelApi('/materiels');
+            afficherMateriel();
+        }
 
-            const articles = [];
-            document.querySelectorAll('.materiel-check:checked').forEach(el => articles.push({ materielId: parseInt(el.dataset.id), quantite: 1 }));
-            document.querySelectorAll('.materiel-qty').forEach(el => {
-                const qte = parseInt(el.value);
-                if (qte > 0) articles.push({ materielId: parseInt(el.dataset.id), quantite: qte });
+        function estDisponible(m) {
+            return m.typeGestion === 'DURABLE' ? m.statut === 'DISPONIBLE' : m.quantiteStock > 0;
+        }
+
+        function afficherMateriel() {
+            const texte = document.getElementById('recherche').value.toLowerCase().trim();
+            const liste = materiels.filter(m => !texte || m.designation.toLowerCase().includes(texte));
+            const conteneur = document.getElementById('listeMateriel');
+            if (!liste.length) { conteneur.innerHTML = etatVide('Aucun matériel.'); return; }
+
+            // Regroupement par catégorie
+            const groupes = {};
+            liste.forEach(m => (groupes[m.categorie.nom] = groupes[m.categorie.nom] || []).push(m));
+
+            conteneur.innerHTML = Object.keys(groupes).sort().map(nom => `
+                <div>
+                    <h3 class="text-xs font-bold text-slate-500 uppercase mb-2">${echapper(nom)}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">${groupes[nom].map(ligneMateriel).join('')}</div>
+                </div>`).join('');
+
+            conteneur.querySelectorAll('input[data-id]').forEach(el => el.addEventListener('input', () => {
+                const id = parseInt(el.dataset.id);
+                const quantite = el.type === 'checkbox' ? (el.checked ? 1 : 0) : parseInt(el.value || '0');
+                if (quantite > 0) selection.set(id, quantite); else selection.delete(id);
+                afficherRecapitulatif();
+            }));
+            afficherRecapitulatif();
+        }
+
+        function ligneMateriel(m) {
+            const dispo = estDisponible(m);
+            const choisi = selection.get(m.id) || 0;
+            const classe = `flex justify-between items-center gap-3 p-3 border rounded-lg text-sm ${dispo ? 'border-slate-200 hover:bg-slate-50' : 'border-slate-100 bg-slate-50 opacity-60'}`;
+            if (m.typeGestion === 'DURABLE') {
+                return `<label class="${classe} ${dispo ? 'cursor-pointer' : ''}">
+                    <span class="font-medium text-slate-700">${echapper(m.designation)}
+                        ${dispo ? '' : `<span class="text-xs text-slate-400">(${LABELS_STATUT_MATERIEL[m.statut].texte.toLowerCase()})</span>`}</span>
+                    <input type="checkbox" data-id="${m.id}" class="w-4 h-4" ${dispo ? '' : 'disabled'} ${choisi ? 'checked' : ''}>
+                </label>`;
+            }
+            return `<label class="${classe}">
+                <span class="font-medium text-slate-700">${echapper(m.designation)} <span class="text-xs text-slate-400">(stock : ${m.quantiteStock})</span></span>
+                <input type="number" min="0" max="${m.quantiteStock}" value="${choisi}" data-id="${m.id}" aria-label="Quantité"
+                       class="w-16 text-center border border-slate-300 rounded py-1" ${dispo ? '' : 'disabled'}>
+            </label>`;
+        }
+
+        function afficherRecapitulatif() {
+            const zone = document.getElementById('recapitulatif');
+            if (!selection.size) { zone.classList.add('hidden'); return; }
+            const lignes = [...selection].map(([id, qte]) => {
+                const m = materiels.find(x => x.id === id);
+                return m ? `${echapper(m.designation)}${m.typeGestion === 'CONSOMMABLE' ? ' × ' + qte : ''}` : '';
             });
+            zone.innerHTML = `<strong>Votre sélection :</strong> ${lignes.join(', ')}`;
+            zone.classList.remove('hidden');
+        }
 
-            if (articles.length === 0) {
-                afficherMessage(messageZone, "Sélectionnez au moins un matériel.", false);
+        async function soumettre(e) {
+            e.preventDefault();
+            if (!selection.size) {
+                afficherMessage('messageZone', 'Sélectionnez au moins un matériel.', false);
                 return;
             }
-
-            const payload = {
-                delegueId: session.id,
-                salle: document.getElementById('salle').value,
-                heureRetourPrevue: document.getElementById('heureRetourPrevue').value || null,
-                articles
-            };
-
-            try {
-                const result = await appelApi('/emprunts/demande', { method: 'POST', body: payload });
-                afficherMessage(messageZone, result.message, result.success);
-                if (result.success) {
-                    document.getElementById('demandeForm').reset();
-                    chargerMateriel();
+            const bouton = document.getElementById('btnEnvoyer');
+            bouton.disabled = true;
+            const resultat = await appelApi('/emprunts/demande', {
+                method: 'POST',
+                body: {
+                    salle: document.getElementById('salle').value,
+                    heureRetourPrevue: document.getElementById('heureRetourPrevue').value || null,
+                    articles: [...selection].map(([materielId, quantite]) => ({ materielId, quantite }))
                 }
-            } catch (err) {
-                afficherMessage(messageZone, "Erreur de connexion au serveur.", false);
+            });
+            bouton.disabled = false;
+            afficherMessage('messageZone', resultat.message, resultat.success);
+            if (resultat.success) {
+                selection.clear();
+                e.target.reset();
+                chargerMateriel();
+                setTimeout(() => window.location.href = 'mes-emprunts.html', 2000);
             }
         }
     </script>

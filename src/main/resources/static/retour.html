@@ -3,201 +3,178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Retour Matériel - Gestion Matériel</title>
+    <title>Retours - Gestion Matériel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="js/commun.js"></script>
 </head>
-<body class="bg-slate-100 font-sans p-6">
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
 
-    <div class="max-w-5xl mx-auto space-y-6">
-
-        <div class="bg-blue-600 p-4 rounded-xl text-white flex flex-wrap gap-3 justify-between items-center shadow-md">
-            <div>
-                <h1 class="text-xl font-bold">Retour & Restitution de Matériel</h1>
-                <p id="sousTitre" class="text-blue-100 text-sm">Gestion des fiches actives</p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="accueil-agent.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Accueil</a>
-                <a href="emprunt.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Demandes</a>
-                <a href="materiel.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Catalogue</a>
-                <a href="historique.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Historique</a>
-            </div>
+    <main class="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800">Retour du matériel</h1>
+            <p class="text-sm text-slate-500">Sélectionnez un emprunt en cours puis déclarez l'état de chaque article rendu.</p>
         </div>
 
+        <div id="messageGlobal" class="hidden"></div>
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-            <div class="lg:col-span-1 bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                <h2 class="font-bold text-slate-800 text-md">Emprunts en cours</h2>
-                <div id="listeEmprunts" class="space-y-3 max-h-[500px] overflow-y-auto">
-                    <p class="text-sm text-slate-500 italic">Chargement des emprunts...</p>
+            <section class="lg:col-span-1 bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                <div class="flex justify-between items-center">
+                    <h2 class="font-bold text-slate-800">Emprunts en cours</h2>
+                    <input id="filtre" type="search" placeholder="Filtrer..." class="w-32 px-2 py-1 border border-slate-300 rounded-lg text-xs">
                 </div>
-            </div>
+                <div id="listeEmprunts" class="space-y-2 max-h-[600px] overflow-y-auto"></div>
+            </section>
 
-            <div class="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            <section class="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                 <form id="formRetour" class="space-y-6 hidden">
-
                     <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
                         <span class="text-xs font-bold text-blue-600 uppercase">Fiche sélectionnée</span>
-                        <h3 id="recapEmprunteur" class="text-lg font-bold text-slate-800">---</h3>
-                        <p id="recapDetails" class="text-sm text-slate-600">---</p>
-                        <p id="recapRetard" class="text-sm font-semibold text-red-600 mt-1 hidden">⚠ Ce matériel est en retard de retour.</p>
+                        <h3 id="recapEmprunteur" class="text-lg font-bold text-slate-800"></h3>
+                        <p id="recapDetails" class="text-sm text-slate-600"></p>
+                        <p id="recapRetard" class="text-sm font-semibold text-red-600 mt-1 hidden"></p>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-2">État de chaque article au retour</label>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="block text-sm font-medium text-slate-700">État de chaque article</span>
+                            <button type="button" id="btnToutBon" class="text-xs text-blue-600 hover:underline">Tout en bon état</button>
+                        </div>
                         <div id="lignesArticles" class="space-y-2"></div>
-                        <p class="text-xs text-slate-400 mt-2">Les consommables (marqueurs, etc.) ne reviennent pas en stock : aucun état à déclarer.</p>
+                        <p class="text-xs text-slate-400 mt-2">
+                            Bon état → disponible · À vérifier → à contrôler · Endommagé → maintenance · Vide/épuisé → hors service.
+                            Les consommables ne reviennent pas en stock.
+                        </p>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Observations / Remarques</label>
-                        <textarea id="observations" rows="3" placeholder="Ex: Câble HDMI manquant..."
+                        <label for="observations" class="block text-sm font-medium text-slate-700 mb-1">Observations</label>
+                        <textarea id="observations" rows="3" placeholder="Ex : câble HDMI manquant..."
                                   class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
                     </div>
 
-                    <div id="messageZone" class="hidden text-sm rounded-lg p-3"></div>
+                    <div id="messageZone" class="hidden"></div>
 
-                    <div class="flex justify-end">
-                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2.5 rounded-lg shadow-sm">
-                            Enregistrer le retour
-                        </button>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" id="btnAnnuler" class="px-4 py-2.5 rounded-lg border border-slate-300 text-slate-600 text-sm hover:bg-slate-50">Fermer</button>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2.5 rounded-lg text-sm shadow-sm">Enregistrer le retour</button>
                     </div>
                 </form>
 
-                <div id="emptyState" class="text-center py-12 text-slate-400">
-                    <div id="messageGlobal" class="hidden text-sm rounded-lg p-3 mb-4"></div>
-                    <p class="text-sm">Sélectionnez une fiche d'emprunt à gauche pour enregistrer le retour du matériel.</p>
+                <div id="etatVideFormulaire" class="text-center py-16 text-slate-400 text-sm">
+                    Sélectionnez une fiche à gauche pour enregistrer le retour du matériel.
                 </div>
-            </div>
+            </section>
         </div>
-    </div>
+    </main>
 
     <script>
-        const agent = exigerSession('AGENT');
+        let emprunts = [];
         let ficheSelectionnee = null;
 
         const OPTIONS_ETAT = Object.entries(LABELS_ETAT_RETOUR)
-            .map(([valeur, info]) => `<option value="${valeur}">${info.icone} ${info.texte}</option>`)
-            .join('');
+            .map(([valeur, info]) => `<option value="${valeur}">${info.icone} ${info.texte}</option>`).join('');
 
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('sousTitre').textContent = `Réception par : ${agent.nom} (${agent.role})`;
-            chargerEmpruntsActifs();
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initPage({ type: 'AGENT', page: 'retours' });
             document.getElementById('formRetour').addEventListener('submit', validerRetour);
+            document.getElementById('filtre').addEventListener('input', afficherListe);
+            document.getElementById('btnAnnuler').addEventListener('click', fermerFiche);
+            document.getElementById('btnToutBon').addEventListener('click', () =>
+                document.querySelectorAll('.etat-article').forEach(s => s.value = 'BON_ETAT'));
+            chargerEmprunts();
         });
 
-        async function chargerEmpruntsActifs() {
+        async function chargerEmprunts() {
+            const resultat = await appelApi('/emprunts/en-cours');
+            emprunts = resultat.success ? resultat.data : [];
+            afficherListe();
+        }
+
+        function afficherListe() {
+            const texte = document.getElementById('filtre').value.toLowerCase().trim();
+            const liste = emprunts.filter(e => !texte ||
+                `${e.delegue.nom} ${e.salle} ${e.details.map(d => d.materiel.designation).join(' ')}`.toLowerCase().includes(texte));
             const conteneur = document.getElementById('listeEmprunts');
-            let result;
-            try {
-                result = await appelApi('/emprunts/actifs');
-            } catch (e) {
-                conteneur.innerHTML = '<p class="text-sm text-red-600 p-2">Erreur de connexion au serveur.</p>';
-                return;
-            }
+
+            if (!liste.length) { conteneur.innerHTML = etatVide('Aucun emprunt en cours.'); return; }
+
             conteneur.innerHTML = '';
-
-            // L'API ne renvoie que les emprunts validés (EN_COURS) et non rendus
-            const emprunts = (result.success ? result.data : []).map(item => ({ ...item, enRetard: estEnRetard(item) }));
-
-            if (emprunts.length === 0) {
-                conteneur.innerHTML = '<p class="text-sm text-slate-500 italic p-2">Aucun emprunt en cours.</p>';
-                return;
-            }
-
-            // Les retards d'abord
-            emprunts.sort((a, b) => (b.enRetard === a.enRetard) ? 0 : (b.enRetard ? 1 : -1));
-
-            emprunts.forEach(item => {
-                const agentSortie = item.agentSortie ? item.agentSortie.nom : '—';
-                const heurePrevue = formaterHeure(item.heureRetourPrevue);
-
-                const card = document.createElement('div');
-                card.className = `p-3 border rounded-lg cursor-pointer transition text-sm space-y-1 ${
-                    item.enRetard
-                        ? 'border-red-300 bg-red-50 hover:bg-red-100'
-                        : 'border-slate-200 hover:bg-blue-50 hover:border-blue-300'
-                }`;
-                card.onclick = () => selectionnerFiche(item);
-
-                card.innerHTML = `
-                    <div class="flex justify-between items-start">
-                        <div class="font-semibold text-slate-800">${echapper(item.delegue.nom)}</div>
-                        ${item.enRetard ? '<span class="text-[10px] font-bold text-white bg-red-600 px-2 py-0.5 rounded-full">EN RETARD</span>' : ''}
+            liste.forEach(e => {
+                const heure = formaterHeure(e.heureRetourPrevue);
+                const carte = document.createElement('button');
+                carte.type = 'button';
+                carte.className = `w-full text-left p-3 border rounded-lg transition text-sm space-y-1 ${
+                    ficheSelectionnee && ficheSelectionnee.id === e.id ? 'ring-2 ring-blue-500 ' : ''}${
+                    e.enRetard ? 'border-red-300 bg-red-50 hover:bg-red-100' : 'border-slate-200 hover:bg-blue-50 hover:border-blue-300'}`;
+                carte.innerHTML = `
+                    <div class="flex justify-between items-start gap-2">
+                        <span class="font-semibold text-slate-800">${echapper(e.delegue.nom)}</span>
+                        ${e.enRetard ? badge(STATUTS_FICHE.RETARD) : ''}
                     </div>
-                    <div class="text-xs text-slate-500">${echapper(item.delegue.filiereNiveau)} — <span class="font-bold text-blue-600">${echapper(item.salle)}</span></div>
-                    <div class="text-[11px] text-slate-400">Sorti le ${formaterDate(item.dateSortie)} (remis par ${echapper(agentSortie)})</div>
-                    ${heurePrevue ? `<div class="text-[11px] ${item.enRetard ? 'text-red-600 font-semibold' : 'text-slate-400'}">Retour prévu : ${heurePrevue}</div>` : ''}
-                `;
-                conteneur.appendChild(card);
+                    <div class="text-xs text-slate-500">${echapper(e.delegue.filiereNiveau)} — salle <span class="font-bold text-blue-600">${echapper(e.salle)}</span></div>
+                    <div class="text-[11px] text-slate-400">Sorti le ${formaterDate(e.dateSortie)} par ${echapper(e.agentSortie ? e.agentSortie.nom : '—')}</div>
+                    ${heure ? `<div class="text-[11px] ${e.enRetard ? 'text-red-600 font-semibold' : 'text-slate-400'}">Retour prévu : ${heure}</div>` : ''}`;
+                carte.addEventListener('click', () => selectionnerFiche(e));
+                conteneur.appendChild(carte);
             });
         }
 
-        function selectionnerFiche(item) {
-            ficheSelectionnee = item;
-            document.getElementById('emptyState').classList.add('hidden');
+        function selectionnerFiche(e) {
+            ficheSelectionnee = e;
+            afficherListe();
+            document.getElementById('etatVideFormulaire').classList.add('hidden');
             document.getElementById('formRetour').classList.remove('hidden');
             document.getElementById('messageZone').classList.add('hidden');
+            document.getElementById('observations').value = '';
 
-            document.getElementById('recapEmprunteur').innerText = item.delegue.nom;
-            document.getElementById('recapDetails').innerText = `${item.delegue.filiereNiveau} | Salle : ${item.salle}`;
-            document.getElementById('recapRetard').classList.toggle('hidden', !item.enRetard);
+            document.getElementById('recapEmprunteur').textContent = e.delegue.nom;
+            document.getElementById('recapDetails').textContent =
+                `${e.delegue.filiereNiveau} · salle ${e.salle} · sorti le ${formaterDate(e.dateSortie)}`;
+            const retard = document.getElementById('recapRetard');
+            retard.classList.toggle('hidden', !e.enRetard);
+            retard.textContent = e.enRetard ? `⚠ En retard : retour attendu le ${formaterDate(e.echeance)}.` : '';
 
-            // Une ligne par article : un menu d'état pour les durables, simple mention pour les consommables
             const lignes = document.getElementById('lignesArticles');
-            lignes.innerHTML = '';
-            item.details.forEach(d => {
-                const ligne = document.createElement('div');
-                ligne.className = 'flex items-center justify-between gap-3 p-3 border border-slate-200 rounded-lg text-sm';
-                if (d.materiel.typeGestion === 'DURABLE') {
-                    ligne.innerHTML = `
-                        <div>
-                            <div class="font-medium text-slate-800">${echapper(d.materiel.designation)}</div>
-                            <div class="text-xs text-slate-400">${echapper(d.materiel.codeUnique || '')}</div>
-                        </div>
-                        <select data-detail-id="${d.id}" class="etat-article px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                            ${OPTIONS_ETAT}
-                        </select>`;
-                } else {
-                    ligne.innerHTML = `
-                        <div class="font-medium text-slate-800">${echapper(d.materiel.designation)} <span class="text-xs text-slate-400">× ${d.quantite}</span></div>
-                        <span class="text-xs text-slate-400 italic">Consommable</span>`;
-                }
-                lignes.appendChild(ligne);
-            });
+            lignes.innerHTML = e.details.map(d => d.materiel.typeGestion === 'DURABLE' ? `
+                <div class="flex items-center justify-between gap-3 p-3 border border-slate-200 rounded-lg text-sm">
+                    <div>
+                        <div class="font-medium text-slate-800">${echapper(d.materiel.designation)}</div>
+                        <div class="text-xs text-slate-400">${echapper(d.materiel.codeUnique || '')}</div>
+                    </div>
+                    <select data-detail-id="${d.id}" aria-label="État de ${echapper(d.materiel.designation)}"
+                            class="etat-article px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">${OPTIONS_ETAT}</select>
+                </div>` : `
+                <div class="flex items-center justify-between gap-3 p-3 border border-slate-100 bg-slate-50 rounded-lg text-sm">
+                    <div class="font-medium text-slate-700">${echapper(d.materiel.designation)} <span class="text-xs text-slate-400">× ${d.quantite}</span></div>
+                    <span class="text-xs text-slate-400 italic">Consommable</span>
+                </div>`).join('');
+        }
+
+        function fermerFiche() {
+            ficheSelectionnee = null;
+            document.getElementById('formRetour').classList.add('hidden');
+            document.getElementById('etatVideFormulaire').classList.remove('hidden');
+            afficherListe();
         }
 
         async function validerRetour(e) {
             e.preventDefault();
             if (!ficheSelectionnee) return;
-            document.getElementById('messageZone').classList.add('hidden');
-
             const details = [...document.querySelectorAll('.etat-article')].map(sel => ({
-                detailId: parseInt(sel.dataset.detailId),
-                etatRetour: sel.value
+                detailId: parseInt(sel.dataset.detailId), etatRetour: sel.value
             }));
-
-            const payload = {
-                empruntId: ficheSelectionnee.id,
-                agentRetourId: agent.id,
-                observations: document.getElementById('observations').value,
-                details
-            };
-
-            try {
-                const result = await appelApi('/emprunts/retour', { method: 'POST', body: payload });
-                if (result.success) {
-                    ficheSelectionnee = null;
-                    document.getElementById('formRetour').reset();
-                    document.getElementById('formRetour').classList.add('hidden');
-                    document.getElementById('emptyState').classList.remove('hidden');
-                    afficherMessage('messageGlobal', result.message, true);
-                    chargerEmpruntsActifs();
-                } else {
-                    afficherMessage('messageZone', result.message, false);
-                }
-            } catch (err) {
-                afficherMessage('messageZone', 'Erreur de connexion au serveur.', false);
+            const resultat = await appelApi(`/emprunts/${ficheSelectionnee.id}/retour`, {
+                method: 'POST',
+                body: { observations: document.getElementById('observations').value, details }
+            });
+            if (resultat.success) {
+                fermerFiche();
+                afficherMessage('messageGlobal', resultat.message, true);
+                chargerEmprunts();
+            } else {
+                afficherMessage('messageZone', resultat.message, false);
             }
         }
     </script>

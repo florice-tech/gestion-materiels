@@ -3,64 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mon Espace - Gestion Matériel</title>
+    <title>Mon espace - Gestion Matériel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="js/commun.js"></script>
 </head>
-<body class="bg-slate-100 font-sans p-6">
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
 
-    <div class="max-w-3xl mx-auto space-y-6">
-
-        <div class="bg-blue-600 p-4 rounded-xl text-white flex justify-between items-center shadow-md">
-            <div>
-                <h1 id="titreBienvenue" class="text-xl font-bold">Bonjour</h1>
-                <p id="sousTitre" class="text-blue-100 text-sm"></p>
-            </div>
-            <button id="btnDeconnexion" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">
-                Se déconnecter
-            </button>
+    <main class="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
+        <div>
+            <h1 id="bienvenue" class="text-2xl font-bold text-slate-800">Bonjour</h1>
+            <p class="text-sm text-slate-500">Demandez du matériel en ligne, puis récupérez-le au poste de surveillance.</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <section id="resume" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></section>
 
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
             <a href="demande-emprunt.html" class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition group">
                 <div class="text-3xl mb-2">📤</div>
                 <h2 class="font-bold text-slate-800 group-hover:text-blue-600">Nouvelle demande d'emprunt</h2>
-                <p class="text-sm text-slate-500 mt-1">Choisir du matériel et demander à l'emprunter.</p>
+                <p class="text-sm text-slate-500 mt-1">Choisir la salle, l'heure de retour et le matériel.</p>
             </a>
-
             <a href="mes-emprunts.html" class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition group">
                 <div class="text-3xl mb-2">📋</div>
                 <h2 class="font-bold text-slate-800 group-hover:text-blue-600">Mes emprunts</h2>
-                <p class="text-sm text-slate-500 mt-1">Suivre mes demandes en attente et mon historique.</p>
+                <p class="text-sm text-slate-500 mt-1">Suivre mes demandes, annuler, consulter mon historique.</p>
             </a>
-
         </div>
-    </div>
+
+        <section class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-900 space-y-1">
+            <p class="font-semibold">Comment ça marche ?</p>
+            <p>1. Envoyez votre demande : le matériel est réservé pour vous.</p>
+            <p>2. Passez au poste de surveillance : l'agent vous remet le matériel et valide.</p>
+            <p>3. Rapportez-le avant l'heure prévue : l'agent enregistre le retour.</p>
+        </section>
+    </main>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const session = localStorage.getItem('utilisateurConnecte');
+        document.addEventListener('DOMContentLoaded', async () => {
+            const moi = await initPage({ type: 'DELEGUE', page: 'accueil' });
+            document.getElementById('bienvenue').textContent = `Bonjour, ${moi.nom}`;
 
-            if (!session) {
-                window.location.href = 'login.html';
-                return;
-            }
+            const resultat = await appelApi('/emprunts/mes-emprunts');
+            const emprunts = resultat.success ? resultat.data : [];
+            const enAttente = emprunts.filter(e => e.statutEmprunt === 'EN_ATTENTE').length;
+            const enCours = emprunts.filter(e => e.statutEmprunt === 'EN_COURS').length;
+            const enRetard = emprunts.filter(e => e.enRetard).length;
 
-            const utilisateur = JSON.parse(session);
-
-            if (utilisateur.type !== 'DELEGUE') {
-                window.location.href = 'login.html';
-                return;
-            }
-
-            document.getElementById('titreBienvenue').textContent = `Bonjour, ${utilisateur.nom}`;
-            document.getElementById('sousTitre').textContent = utilisateur.filiereNiveau;
-
-            document.getElementById('btnDeconnexion').addEventListener('click', () => {
-                localStorage.removeItem('utilisateurConnecte');
-                window.location.href = 'login.html';
-            });
+            const tuile = (libelle, valeur, alerte) => `
+                <a href="mes-emprunts.html" class="bg-white p-4 rounded-xl border ${alerte ? 'border-red-300 bg-red-50' : 'border-slate-200'} shadow-sm block">
+                    <div class="text-xs font-medium text-slate-500">${libelle}</div>
+                    <div class="text-3xl font-bold mt-1 ${alerte ? 'text-red-700' : 'text-slate-800'}">${valeur}</div>
+                </a>`;
+            document.getElementById('resume').innerHTML =
+                tuile('Demandes à récupérer', enAttente, false) +
+                tuile('Matériel en ma possession', enCours, false) +
+                tuile('En retard', enRetard, enRetard > 0);
         });
     </script>
 </body>

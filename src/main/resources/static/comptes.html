@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comptes - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/commun.js"></script>
+</head>
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
+
+    <main class="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800">Gestion des comptes</h1>
+            <p class="text-sm text-slate-500">Un compte désactivé ne peut plus se connecter ; son historique est conservé.</p>
+        </div>
+
+        <div id="messageZone" class="hidden"></div>
+
+        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-wrap justify-between items-center gap-2">
+                <h2 class="font-bold text-slate-800">Agents de surveillance</h2>
+                <button id="btnNouvelAgent" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2 rounded-lg">+ Nouvel agent</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead><tr class="border-b border-slate-200 text-slate-500 text-xs uppercase">
+                        <th class="py-2 pr-3">Nom</th><th class="py-2 pr-3">Identifiant</th><th class="py-2 pr-3">Intitulé</th>
+                        <th class="py-2 pr-3">Droits</th><th class="py-2 pr-3">État</th><th class="py-2 text-right">Actions</th>
+                    </tr></thead>
+                    <tbody id="tableAgents"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-wrap justify-between items-center gap-2">
+                <h2 class="font-bold text-slate-800">Délégués</h2>
+                <input id="filtreDelegues" type="search" placeholder="Rechercher..." class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
+            </div>
+            <p class="text-xs text-slate-400">Les délégués créent eux-mêmes leur compte depuis la page de connexion.</p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead><tr class="border-b border-slate-200 text-slate-500 text-xs uppercase">
+                        <th class="py-2 pr-3">Nom</th><th class="py-2 pr-3">Identifiant</th><th class="py-2 pr-3">Filière / niveau</th>
+                        <th class="py-2 pr-3">Inscrit le</th><th class="py-2 pr-3">État</th><th class="py-2 text-right">Actions</th>
+                    </tr></thead>
+                    <tbody id="tableDelegues"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let moi = null;
+        let delegues = [];
+
+        const bouton = (texte, attribut, classe = 'text-blue-600') =>
+            `<button ${attribut} class="text-xs ${classe} hover:underline ml-3">${texte}</button>`;
+        const etat = actif => badge(actif
+            ? { texte: 'Actif', classe: 'bg-green-100 text-green-700' }
+            : { texte: 'Désactivé', classe: 'bg-slate-200 text-slate-600' });
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            moi = await initPage({ type: 'AGENT', admin: true, page: 'comptes' });
+            document.getElementById('btnNouvelAgent').addEventListener('click', creerAgent);
+            document.getElementById('filtreDelegues').addEventListener('input', afficherDelegues);
+            chargerAgents();
+            chargerDelegues();
+        });
+
+        // ---------- Agents ----------
+
+        async function chargerAgents() {
+            const agents = await appelApi('/admin/agents');
+            const corps = document.getElementById('tableAgents');
+            corps.innerHTML = '';
+            agents.forEach(a => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-100';
+                tr.innerHTML = `
+                    <td class="py-2 pr-3 font-medium text-slate-800">${echapper(a.nom)}${a.id === moi.id ? ' <span class="text-xs text-slate-400">(vous)</span>' : ''}</td>
+                    <td class="py-2 pr-3 font-mono text-xs">${echapper(a.identifiant)}</td>
+                    <td class="py-2 pr-3 text-slate-600">${echapper(a.role)}</td>
+                    <td class="py-2 pr-3">${a.administrateur ? badge({ texte: 'Administrateur', classe: 'bg-purple-100 text-purple-700' }) : '<span class="text-xs text-slate-400">Agent</span>'}</td>
+                    <td class="py-2 pr-3">${etat(a.actif)}</td>
+                    <td class="py-2 text-right whitespace-nowrap">
+                        ${bouton('Modifier', 'data-modifier')}
+                        ${bouton('Mot de passe', 'data-mdp')}
+                        ${a.id === moi.id ? '' : bouton(a.actif ? 'Désactiver' : 'Réactiver', 'data-actif', a.actif ? 'text-red-600' : 'text-green-700')}
+                    </td>`;
+                tr.querySelector('[data-modifier]').addEventListener('click', () => modifierAgent(a));
+                tr.querySelector('[data-mdp]').addEventListener('click', () => motDePasse('agents', a));
+                const btnActif = tr.querySelector('[data-actif]');
+                if (btnActif) btnActif.addEventListener('click', () => changerActif('agents', a, chargerAgents));
+                corps.appendChild(tr);
+            });
+        }
+
+        async function creerAgent() {
+            const v = await demanderFormulaire({
+                titre: 'Nouvel agent',
+                champs: [
+                    { nom: 'nom', label: 'Nom affiché', requis: true },
+                    { nom: 'identifiant', label: 'Identifiant de connexion', requis: true, aide: 'Lettres, chiffres, point, tiret (3 à 50).' },
+                    { nom: 'role', label: 'Intitulé du poste', valeur: 'Surveillant' },
+                    { nom: 'motDePasse', label: 'Mot de passe provisoire', type: 'password', requis: true, aide: '6 caractères minimum. À communiquer à l\'agent.' },
+                    { nom: 'administrateur', label: 'Administrateur (peut gérer les comptes)', type: 'checkbox' }
+                ],
+                bouton: 'Créer le compte'
+            });
+            if (!v) return;
+            const resultat = await appelApi('/admin/agents', { method: 'POST', body: v });
+            afficherMessage('messageZone', resultat.message, resultat.success);
+            chargerAgents();
+        }
+
+        async function modifierAgent(a) {
+            const v = await demanderFormulaire({
+                titre: `Modifier ${a.nom}`,
+                champs: [
+                    { nom: 'nom', label: 'Nom affiché', valeur: a.nom, requis: true },
+                    { nom: 'role', label: 'Intitulé du poste', valeur: a.role },
+                    { nom: 'administrateur', label: 'Administrateur (peut gérer les comptes)', type: 'checkbox', valeur: a.administrateur }
+                ],
+                bouton: 'Enregistrer'
+            });
+            if (!v) return;
+            const resultat = await appelApi(`/admin/agents/${a.id}`, { method: 'PUT', body: v });
+            afficherMessage('messageZone', resultat.message, resultat.success);
+            chargerAgents();
+        }
+
+        // ---------- Délégués ----------
+
+        async function chargerDelegues() {
+            delegues = await appelApi('/admin/delegues');
+            afficherDelegues();
+        }
+
+        function afficherDelegues() {
+            const texte = document.getElementById('filtreDelegues').value.toLowerCase().trim();
+            const liste = delegues.filter(d => !texte || `${d.nom} ${d.identifiant} ${d.filiereNiveau}`.toLowerCase().includes(texte));
+            const corps = document.getElementById('tableDelegues');
+            if (!liste.length) { corps.innerHTML = `<tr><td colspan="6">${etatVide('Aucun délégué.')}</td></tr>`; return; }
+            corps.innerHTML = '';
+            liste.forEach(d => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-100';
+                tr.innerHTML = `
+                    <td class="py-2 pr-3 font-medium text-slate-800">${echapper(d.nom)}</td>
+                    <td class="py-2 pr-3 font-mono text-xs">${echapper(d.identifiant)}</td>
+                    <td class="py-2 pr-3 text-slate-600">${echapper(d.filiereNiveau)}</td>
+                    <td class="py-2 pr-3 text-xs text-slate-500">${formaterDate(d.dateCreation)}</td>
+                    <td class="py-2 pr-3">${etat(d.actif)}</td>
+                    <td class="py-2 text-right whitespace-nowrap">
+                        ${bouton('Mot de passe', 'data-mdp')}
+                        ${bouton(d.actif ? 'Désactiver' : 'Réactiver', 'data-actif', d.actif ? 'text-red-600' : 'text-green-700')}
+                    </td>`;
+                tr.querySelector('[data-mdp]').addEventListener('click', () => motDePasse('delegues', d));
+                tr.querySelector('[data-actif]').addEventListener('click', () => changerActif('delegues', d, chargerDelegues));
+                corps.appendChild(tr);
+            });
+        }
+
+        // ---------- Actions communes ----------
+
+        async function motDePasse(type, compte) {
+            const v = await demanderFormulaire({
+                titre: `Nouveau mot de passe pour ${compte.nom}`,
+                champs: [{ nom: 'motDePasse', label: 'Mot de passe provisoire', type: 'password', requis: true, aide: '6 caractères minimum.' }],
+                bouton: 'Réinitialiser'
+            });
+            if (!v) return;
+            const resultat = await appelApi(`/admin/${type}/${compte.id}/mot-de-passe`, { method: 'POST', body: v });
+            afficherMessage('messageZone', resultat.message, resultat.success);
+        }
+
+        async function changerActif(type, compte, recharger) {
+            const desactiver = compte.actif;
+            if (desactiver && !await confirmer('Désactiver le compte', `${compte.nom} ne pourra plus se connecter.`, 'Désactiver', true)) return;
+            const resultat = await appelApi(`/admin/${type}/${compte.id}/actif`, { method: 'PATCH', body: { actif: !desactiver } });
+            afficherMessage('messageZone', resultat.message, resultat.success);
+            recharger();
+        }
+    </script>
+</body>
+</html>

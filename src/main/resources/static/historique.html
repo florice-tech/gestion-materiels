@@ -3,122 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Historique des Emprunts - Gestion Matériel</title>
+    <title>Historique - Gestion Matériel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="js/commun.js"></script>
 </head>
-<body class="bg-slate-100 font-sans p-6">
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
 
-    <div class="max-w-6xl mx-auto space-y-6">
-        <div class="bg-blue-600 p-4 rounded-xl text-white flex flex-wrap gap-3 justify-between items-center shadow-md">
+    <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+        <div class="flex flex-wrap items-end justify-between gap-3">
             <div>
-                <h1 class="text-xl font-bold">Historique des Emprunts</h1>
-                <p class="text-blue-100 text-sm">Journal complet des mouvements de matériel</p>
+                <h1 class="text-2xl font-bold text-slate-800">Historique des emprunts</h1>
+                <p class="text-sm text-slate-500">Toutes les fiches : demandes, emprunts, retours, refus et annulations.</p>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="accueil-agent.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Accueil</a>
-                <a href="emprunt.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Demandes</a>
-                <a href="retour.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Retours</a>
-                <a href="materiel.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Catalogue</a>
-            </div>
+            <a href="/api/emprunts/export" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg shadow-sm">
+                ⬇ Exporter en CSV (Excel)
+            </a>
         </div>
 
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-            <div class="flex flex-col md:flex-row gap-3 mb-4">
-                <input type="text" id="filtreNom" placeholder="Rechercher un délégué, une salle, un matériel..."
-                       class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                <select id="filtreStatut" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+                <input type="search" id="filtreTexte" placeholder="Délégué, salle, matériel, agent..."
+                       class="md:col-span-2 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <select id="filtreStatut" class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
                     <option value="">Tous les statuts</option>
-                    <option value="En attente">En attente</option>
-                    <option value="En cours">En cours</option>
-                    <option value="En retard">En retard</option>
-                    <option value="Rendu">Rendu</option>
+                    <option value="EN_ATTENTE">En attente</option>
+                    <option value="EN_COURS">En cours</option>
+                    <option value="RETARD">En retard</option>
+                    <option value="RETOURNE">Rendu</option>
+                    <option value="REFUSEE">Refusée</option>
+                    <option value="ANNULEE">Annulée</option>
                 </select>
+                <label class="flex items-center gap-2 text-xs text-slate-500">Du
+                    <input type="date" id="filtreDu" class="flex-1 px-2 py-2 border border-slate-300 rounded-lg text-sm"></label>
+                <label class="flex items-center gap-2 text-xs text-slate-500">Au
+                    <input type="date" id="filtreAu" class="flex-1 px-2 py-2 border border-slate-300 rounded-lg text-sm"></label>
             </div>
+            <p id="compte" class="text-xs text-slate-500"></p>
 
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left">
                     <thead>
                         <tr class="border-b border-slate-200 text-slate-500 text-xs uppercase">
-                            <th class="py-2 pr-4">Statut</th>
-                            <th class="py-2 pr-4">Délégué</th>
-                            <th class="py-2 pr-4">Salle</th>
-                            <th class="py-2 pr-4">Sortie</th>
-                            <th class="py-2 pr-4">Agent sortie</th>
-                            <th class="py-2 pr-4">Retour</th>
-                            <th class="py-2 pr-4">Agent retour</th>
-                            <th class="py-2 pr-4">Matériel</th>
+                            <th class="py-2 pr-3">N°</th>
+                            <th class="py-2 pr-3">Statut</th>
+                            <th class="py-2 pr-3">Délégué</th>
+                            <th class="py-2 pr-3">Salle</th>
+                            <th class="py-2 pr-3">Demande</th>
+                            <th class="py-2 pr-3">Sortie</th>
+                            <th class="py-2 pr-3">Retour</th>
+                            <th class="py-2 pr-3">Matériel</th>
                             <th class="py-2">Observations</th>
                         </tr>
                     </thead>
-                    <tbody id="corpsTableau">
-                        <tr><td colspan="9" class="py-4 text-center text-slate-500 italic">Chargement...</td></tr>
-                    </tbody>
+                    <tbody id="corpsTableau"></tbody>
                 </table>
             </div>
-            <p class="text-xs text-slate-400 mt-3">🟢 Bon état · 🟡 À vérifier · 🔴 Endommagé · ⚫ Vide / épuisé</p>
-        </div>
-    </div>
+            <p class="text-xs text-slate-400">État au retour : 🟢 bon état · 🟡 à vérifier · 🔴 endommagé · ⚫ vide / épuisé</p>
+        </section>
+    </main>
 
     <script>
-        exigerSession('AGENT');
-        let toutHistorique = [];
+        let historique = [];
 
-        document.addEventListener('DOMContentLoaded', () => {
-            chargerHistorique();
-            document.getElementById('filtreNom').addEventListener('input', appliquerFiltres);
-            document.getElementById('filtreStatut').addEventListener('change', appliquerFiltres);
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initPage({ type: 'AGENT', page: 'historique' });
+            ['filtreTexte', 'filtreStatut', 'filtreDu', 'filtreAu'].forEach(id =>
+                document.getElementById(id).addEventListener('input', afficher));
+            const resultat = await appelApi('/emprunts/historique');
+            historique = resultat.success ? resultat.data : [];
+            afficher();
         });
 
-        async function chargerHistorique() {
-            try {
-                const result = await appelApi('/emprunts/historique');
-                toutHistorique = result.success ? result.data : [];
-            } catch (e) {
-                toutHistorique = [];
-            }
-            appliquerFiltres();
-        }
-
-        function appliquerFiltres() {
-            const texte = document.getElementById('filtreNom').value.toLowerCase().trim();
+        function afficher() {
+            const texte = document.getElementById('filtreTexte').value.toLowerCase().trim();
             const statut = document.getElementById('filtreStatut').value;
+            const du = document.getElementById('filtreDu').value;
+            const au = document.getElementById('filtreAu').value;
 
-            afficherLignes(toutHistorique.filter(e => {
-                const contenu = [
-                    e.delegue.nom, e.delegue.filiereNiveau, e.salle,
-                    ...(e.details || []).map(d => d.materiel.designation)
-                ].join(' ').toLowerCase();
-                return (!texte || contenu.includes(texte)) && (!statut || statutFiche(e).texte === statut);
-            }));
-        }
+            const liste = historique.filter(e => {
+                const contenu = [e.delegue.nom, e.delegue.filiereNiveau, e.salle,
+                    e.agentSortie?.nom, e.agentRetour?.nom, ...e.details.map(d => d.materiel.designation)]
+                    .join(' ').toLowerCase();
+                const jour = e.dateDemande.substring(0, 10);
+                const statutOk = !statut || (statut === 'RETARD' ? e.enRetard : e.statutEmprunt === statut);
+                return (!texte || contenu.includes(texte)) && statutOk && (!du || jour >= du) && (!au || jour <= au);
+            });
 
-        function afficherLignes(liste) {
+            document.getElementById('compte').textContent = `${liste.length} fiche(s) sur ${historique.length}`;
             const corps = document.getElementById('corpsTableau');
-            corps.innerHTML = '';
-
-            if (liste.length === 0) {
-                corps.innerHTML = '<tr><td colspan="9" class="py-4 text-center text-slate-500 italic">Aucun résultat.</td></tr>';
+            if (!liste.length) {
+                corps.innerHTML = `<tr><td colspan="9">${etatVide('Aucun résultat.')}</td></tr>`;
                 return;
             }
 
-            liste.forEach(e => {
-                const statut = statutFiche(e);
-                const ligne = document.createElement('tr');
-                ligne.className = "border-b border-slate-100 hover:bg-slate-50 align-top";
-                ligne.innerHTML = `
-                    <td class="py-2 pr-4"><span class="text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${statut.classe}">${statut.texte}</span></td>
-                    <td class="py-2 pr-4 font-medium text-slate-800">${echapper(e.delegue.nom)}<div class="text-xs text-slate-400">${echapper(e.delegue.filiereNiveau)}</div></td>
-                    <td class="py-2 pr-4 text-slate-600">${echapper(e.salle)}</td>
-                    <td class="py-2 pr-4 text-slate-500 text-xs">${formaterDate(e.dateSortie)}</td>
-                    <td class="py-2 pr-4 text-slate-600">${echapper(e.agentSortie ? e.agentSortie.nom : '—')}</td>
-                    <td class="py-2 pr-4 text-slate-500 text-xs">${formaterDate(e.dateRetour)}</td>
-                    <td class="py-2 pr-4 text-slate-600">${echapper(e.agentRetour ? e.agentRetour.nom : '—')}</td>
-                    <td class="py-2 pr-4 text-xs">${listeArticlesHtml(e)}</td>
-                    <td class="py-2 text-slate-500 text-xs">${echapper(e.observations || '—')}</td>
-                `;
-                corps.appendChild(ligne);
-            });
+            corps.innerHTML = liste.map(e => {
+                let remarque = echapper(e.observations || '');
+                if (e.statutEmprunt === 'REFUSEE') {
+                    remarque = `Refusée par ${echapper(e.agentRefus?.nom || '—')}${e.motifRefus ? ' : ' + echapper(e.motifRefus) : ''}`;
+                } else if (e.statutEmprunt === 'ANNULEE') {
+                    remarque = `Annulée par le délégué le ${formaterDate(e.dateTraitement)}`;
+                }
+                return `<tr class="border-b border-slate-100 hover:bg-slate-50 align-top">
+                    <td class="py-2 pr-3 text-slate-400 text-xs">${e.id}</td>
+                    <td class="py-2 pr-3">${badge(statutFiche(e))}</td>
+                    <td class="py-2 pr-3 font-medium text-slate-800">${echapper(e.delegue.nom)}<div class="text-xs font-normal text-slate-400">${echapper(e.delegue.filiereNiveau)}</div></td>
+                    <td class="py-2 pr-3 text-slate-600">${echapper(e.salle)}</td>
+                    <td class="py-2 pr-3 text-xs text-slate-500 whitespace-nowrap">${formaterDate(e.dateDemande)}</td>
+                    <td class="py-2 pr-3 text-xs text-slate-500 whitespace-nowrap">${formaterDate(e.dateSortie)}${e.agentSortie ? `<div>par ${echapper(e.agentSortie.nom)}</div>` : ''}${
+                        e.heureRetourPrevue ? `<div class="${e.enRetard ? 'text-red-600 font-semibold' : ''}">prévu ${formaterHeure(e.heureRetourPrevue)}</div>` : ''}</td>
+                    <td class="py-2 pr-3 text-xs text-slate-500 whitespace-nowrap">${formaterDate(e.dateRetour)}${e.agentRetour ? `<div>par ${echapper(e.agentRetour.nom)}</div>` : ''}</td>
+                    <td class="py-2 pr-3 text-xs">${listeArticlesHtml(e)}</td>
+                    <td class="py-2 text-xs text-slate-500 max-w-xs">${remarque || '—'}</td>
+                </tr>`;
+            }).join('');
         }
     </script>
 </body>

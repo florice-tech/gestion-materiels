@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon compte - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/commun.js"></script>
+</head>
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
+
+    <main class="max-w-2xl mx-auto p-4 md:p-6 space-y-6">
+        <h1 class="text-2xl font-bold text-slate-800">Mon compte</h1>
+
+        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <dl id="profil" class="grid grid-cols-3 gap-y-2 text-sm"></dl>
+        </section>
+
+        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <h2 class="font-bold text-slate-800">Changer mon mot de passe</h2>
+            <form id="formMotDePasse" class="space-y-3">
+                <div>
+                    <label for="ancien" class="block text-xs font-medium text-slate-600 mb-1">Mot de passe actuel</label>
+                    <input type="password" id="ancien" required autocomplete="current-password"
+                           class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="nouveau" class="block text-xs font-medium text-slate-600 mb-1">Nouveau mot de passe</label>
+                        <input type="password" id="nouveau" required minlength="6" autocomplete="new-password"
+                               class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="confirmation" class="block text-xs font-medium text-slate-600 mb-1">Confirmation</label>
+                        <input type="password" id="confirmation" required minlength="6" autocomplete="new-password"
+                               class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                </div>
+                <div id="messageZone" class="hidden"></div>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm">Modifier le mot de passe</button>
+            </form>
+        </section>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const moi = await initPage({ page: 'mon-compte' });
+            const lignes = [
+                ['Nom', moi.nom],
+                ['Identifiant', moi.identifiant],
+                ['Profil', moi.type === 'AGENT' ? (moi.administrateur ? 'Agent administrateur' : 'Agent') : 'Délégué'],
+                moi.type === 'AGENT' ? ['Intitulé', moi.role] : ['Filière / niveau', moi.filiereNiveau]
+            ];
+            document.getElementById('profil').innerHTML = lignes.map(([cle, valeur]) =>
+                `<dt class="text-slate-500">${cle}</dt><dd class="col-span-2 font-medium text-slate-800">${echapper(valeur)}</dd>`).join('');
+
+            document.getElementById('formMotDePasse').addEventListener('submit', async e => {
+                e.preventDefault();
+                const nouveau = document.getElementById('nouveau').value;
+                if (nouveau !== document.getElementById('confirmation').value) {
+                    afficherMessage('messageZone', 'Les deux nouveaux mots de passe ne sont pas identiques.', false);
+                    return;
+                }
+                const resultat = await appelApi('/auth/mot-de-passe', {
+                    method: 'POST',
+                    body: { ancienMotDePasse: document.getElementById('ancien').value, nouveauMotDePasse: nouveau }
+                });
+                afficherMessage('messageZone', resultat.message, resultat.success);
+                if (resultat.success) e.target.reset();
+            });
+        });
+    </script>
+</body>
+</html>

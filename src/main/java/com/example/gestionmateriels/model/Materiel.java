@@ -1,15 +1,16 @@
 package com.example.gestionmateriels.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 
 /**
- * Matériel du catalogue : durable (vidéoprojecteur, micro...) ou consommable (marqueurs...).
+ * Matériel du catalogue : durable (vidéoprojecteur, micro... suivi à l'unité)
+ * ou consommable (marqueurs... suivi par quantité, non restitué).
  */
 @Entity
 @Table(name = "materiel")
 public class Materiel {
 
-    // ----- Enums -----
     public enum TypeGestion {
         DURABLE, CONSOMMABLE
     }
@@ -18,12 +19,10 @@ public class Materiel {
         DISPONIBLE, EMPRUNTE, A_VERIFIER, MAINTENANCE, HS
     }
 
-    // ----- Attributs -----
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Ex : Vidéoprojecteur, Micro, Marqueur Noir
     @Column(nullable = false)
     private String designation;
 
@@ -35,7 +34,7 @@ public class Materiel {
     @Column(nullable = false)
     private TypeGestion typeGestion;
 
-    // Optionnel : uniquement pour le matériel durable (unique s'il est renseigné)
+    // Uniquement pour le matériel durable (unique s'il est renseigné)
     @Column(unique = true)
     private String codeUnique;
 
@@ -43,10 +42,14 @@ public class Materiel {
     @Column(nullable = false)
     private StatutMateriel statut = StatutMateriel.DISPONIBLE;
 
-    // Utilisé surtout pour les consommables
+    // Stock restant pour un consommable (toujours 1 pour un durable)
+    @Column(nullable = false)
     private Integer quantiteStock = 1;
 
-    // ----- Constructeurs -----
+    // Consommables : une alerte "stock bas" s'affiche quand le stock atteint ce seuil
+    @Column(nullable = false)
+    private Integer seuilAlerte = 5;
+
     public Materiel() {
     }
 
@@ -60,60 +63,35 @@ public class Materiel {
         this.quantiteStock = quantiteStock;
     }
 
-    // ----- Getters et Setters -----
-    public Long getId() {
-        return id;
+    /** Vrai pour un consommable dont le stock est au niveau du seuil d'alerte ou en dessous. */
+    @JsonProperty("stockBas")
+    public boolean isStockBas() {
+        return typeGestion == TypeGestion.CONSOMMABLE
+                && quantiteStock != null && seuilAlerte != null
+                && quantiteStock <= seuilAlerte;
     }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public String getDesignation() {
-        return designation;
-    }
+    public String getDesignation() { return designation; }
+    public void setDesignation(String designation) { this.designation = designation; }
 
-    public void setDesignation(String designation) {
-        this.designation = designation;
-    }
+    public Categorie getCategorie() { return categorie; }
+    public void setCategorie(Categorie categorie) { this.categorie = categorie; }
 
-    public Categorie getCategorie() {
-        return categorie;
-    }
+    public TypeGestion getTypeGestion() { return typeGestion; }
+    public void setTypeGestion(TypeGestion typeGestion) { this.typeGestion = typeGestion; }
 
-    public void setCategorie(Categorie categorie) {
-        this.categorie = categorie;
-    }
+    public String getCodeUnique() { return codeUnique; }
+    public void setCodeUnique(String codeUnique) { this.codeUnique = codeUnique; }
 
-    public TypeGestion getTypeGestion() {
-        return typeGestion;
-    }
+    public StatutMateriel getStatut() { return statut; }
+    public void setStatut(StatutMateriel statut) { this.statut = statut; }
 
-    public void setTypeGestion(TypeGestion typeGestion) {
-        this.typeGestion = typeGestion;
-    }
+    public Integer getQuantiteStock() { return quantiteStock; }
+    public void setQuantiteStock(Integer quantiteStock) { this.quantiteStock = quantiteStock; }
 
-    public String getCodeUnique() {
-        return codeUnique;
-    }
-
-    public void setCodeUnique(String codeUnique) {
-        this.codeUnique = codeUnique;
-    }
-
-    public StatutMateriel getStatut() {
-        return statut;
-    }
-
-    public void setStatut(StatutMateriel statut) {
-        this.statut = statut;
-    }
-
-    public Integer getQuantiteStock() {
-        return quantiteStock;
-    }
-
-    public void setQuantiteStock(Integer quantiteStock) {
-        this.quantiteStock = quantiteStock;
-    }
+    public Integer getSeuilAlerte() { return seuilAlerte; }
+    public void setSeuilAlerte(Integer seuilAlerte) { this.seuilAlerte = seuilAlerte; }
 }

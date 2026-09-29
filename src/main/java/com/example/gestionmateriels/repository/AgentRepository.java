@@ -4,14 +4,18 @@ import com.example.gestionmateriels.model.Agent;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface AgentRepository extends JpaRepository<Agent, Long> {
 
-    // Retrouver un agent par son nom
-    Optional<Agent> findByNom(String nom);
+    Optional<Agent> findByIdentifiantIgnoreCase(String identifiant);
 
-    // Retrouver un agent par son identifiant de connexion
-    Optional<Agent> findByIdentifiant(String identifiant);
+    boolean existsByIdentifiantIgnoreCase(String identifiant);
+
+    List<Agent> findAllByOrderByNomAsc();
+
+    // Nombre d'administrateurs encore actifs (on ne doit jamais tomber à zéro)
+    long countByAdministrateurTrueAndActifTrue();
 }

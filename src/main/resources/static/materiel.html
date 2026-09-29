@@ -3,257 +3,177 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Catalogue Matériel - Gestion Matériel</title>
+    <title>Catalogue - Gestion Matériel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="js/commun.js"></script>
 </head>
-<body class="bg-slate-100 font-sans p-6">
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
 
-    <div class="max-w-5xl mx-auto space-y-6">
-
-        <div class="bg-blue-600 p-4 rounded-xl text-white flex justify-between items-center shadow-md">
-            <div>
-                <h1 class="text-xl font-bold">Catalogue de Matériel</h1>
-                <p class="text-blue-100 text-sm">Ajouter, retirer, changer le statut ou réapprovisionner</p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="accueil-agent.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Accueil</a>
-                <a href="emprunt.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Demandes</a>
-                <a href="retour.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Retours</a>
-                <a href="historique.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Historique</a>
-            </div>
+    <main class="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800">Catalogue de matériel</h1>
+            <p class="text-sm text-slate-500">Ajoutez, modifiez, changez le statut ou réapprovisionnez le matériel.</p>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-            <div class="lg:col-span-1 space-y-6">
-
-                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
-                    <h2 class="font-bold text-slate-800 text-md">Catégories</h2>
-                    <form id="formCategorie" class="flex gap-2">
-                        <input type="text" id="nomCategorie" placeholder="Nouvelle catégorie"
-                               class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
-                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm">Ajouter</button>
-                    </form>
-                    <div id="messageCategorie" class="hidden text-xs rounded-lg p-2"></div>
-                    <div id="listeCategories" class="space-y-2">
-                        <p class="text-xs text-slate-500 italic">Chargement...</p>
+            <!-- Ajout -->
+            <section class="lg:col-span-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4 h-fit">
+                <h2 class="font-bold text-slate-800">Ajouter un matériel</h2>
+                <form id="formAjout" class="space-y-3">
+                    <div>
+                        <label for="designation" class="block text-xs font-medium text-slate-600 mb-1">Désignation</label>
+                        <input type="text" id="designation" placeholder="ex : Rallonge électrique" required maxlength="100"
+                               class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                     </div>
-                </div>
-
-                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                    <h2 class="font-bold text-slate-800 text-md">Ajouter un matériel</h2>
-
-                    <form id="formAjout" class="space-y-3">
+                    <div>
+                        <label for="categorie" class="block text-xs font-medium text-slate-600 mb-1">Catégorie</label>
+                        <select id="categorie" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"></select>
+                        <p class="text-xs text-slate-400 mt-1">Gérer les catégories : <a href="parametres.html" class="text-blue-600 hover:underline">Salles & catégories</a></p>
+                    </div>
+                    <div>
+                        <label for="typeGestion" class="block text-xs font-medium text-slate-600 mb-1">Type de gestion</label>
+                        <select id="typeGestion" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="DURABLE">Durable (suivi à l'unité, rendu après usage)</option>
+                            <option value="CONSOMMABLE">Consommable (suivi par quantité, non rendu)</option>
+                        </select>
+                    </div>
+                    <div id="champDurable">
+                        <label for="codeUnique" class="block text-xs font-medium text-slate-600 mb-1">Code unique (étiquette)</label>
+                        <input type="text" id="codeUnique" placeholder="ex : VP-02" maxlength="50"
+                               class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                    <div id="champConsommable" class="hidden grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Désignation</label>
-                            <input type="text" id="designation" placeholder="ex: Rallonge électrique"
-                                   class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Catégorie</label>
-                            <select id="categorie" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
-                                <option value="">Chargement...</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Type de gestion</label>
-                            <select id="typeGestion" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" required>
-                                <option value="DURABLE">Durable (suivi unitaire)</option>
-                                <option value="CONSOMMABLE">Consommable (suivi par quantité)</option>
-                            </select>
-                        </div>
-
-                        <div id="champDurable">
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Code unique</label>
-                            <input type="text" id="codeUnique" placeholder="ex: VP-02"
+                            <label for="quantiteStock" class="block text-xs font-medium text-slate-600 mb-1">Quantité initiale</label>
+                            <input type="number" id="quantiteStock" min="0" value="10"
                                    class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                         </div>
-
-                        <div id="champConsommable" class="hidden">
-                            <label class="block text-xs font-medium text-slate-600 mb-1">Quantité initiale</label>
-                            <input type="number" id="quantiteStock" min="0" value="1"
+                        <div>
+                            <label for="seuilAlerte" class="block text-xs font-medium text-slate-600 mb-1">Seuil d'alerte</label>
+                            <input type="number" id="seuilAlerte" min="0" value="5"
                                    class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                         </div>
+                    </div>
+                    <div id="messageAjout" class="hidden"></div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm">Ajouter au catalogue</button>
+                </form>
+            </section>
 
-                        <div id="messageAjout" class="hidden text-xs rounded-lg p-2"></div>
-
-                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm">
-                            Ajouter au catalogue
-                        </button>
-                    </form>
+            <!-- Liste -->
+            <section class="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex flex-wrap gap-2">
+                    <input id="filtreTexte" type="search" placeholder="Rechercher (nom, code)..."
+                           class="flex-1 min-w-[160px] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <select id="filtreCategorie" class="px-3 py-2 border border-slate-300 rounded-lg text-sm"></select>
+                    <select id="filtreStatut" class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                        <option value="">Tous les statuts</option>
+                        <option value="DISPONIBLE">Disponible</option>
+                        <option value="EMPRUNTE">Emprunté</option>
+                        <option value="A_VERIFIER">À vérifier</option>
+                        <option value="MAINTENANCE">Maintenance</option>
+                        <option value="HS">Hors service</option>
+                        <option value="STOCK_BAS">Stock bas</option>
+                    </select>
                 </div>
-
-            </div>
-
-            <div class="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <h2 class="font-bold text-slate-800 text-md mb-4">Matériel existant</h2>
-                <div id="messageCatalogue" class="hidden text-xs rounded-lg p-2 mb-3"></div>
-                <div id="listeCatalogue" class="space-y-2 max-h-[700px] overflow-y-auto">
-                    <p class="text-sm text-slate-500 italic">Chargement...</p>
-                </div>
-            </div>
+                <div id="messageCatalogue" class="hidden"></div>
+                <p id="compteCatalogue" class="text-xs text-slate-500"></p>
+                <div id="listeCatalogue" class="space-y-2"></div>
+            </section>
         </div>
-    </div>
+    </main>
 
     <script>
-        exigerSession('AGENT');
+        let categories = [];
+        let materiels = [];
 
-        const LABELS_STATUT = {
-            DISPONIBLE: { texte: 'Disponible', classe: 'bg-green-100 text-green-700' },
-            EMPRUNTE: { texte: 'Emprunté', classe: 'bg-blue-100 text-blue-700' },
-            A_VERIFIER: { texte: 'À vérifier', classe: 'bg-amber-100 text-amber-700' },
-            MAINTENANCE: { texte: 'Maintenance', classe: 'bg-red-100 text-red-700' },
-            HS: { texte: 'Hors service', classe: 'bg-slate-200 text-slate-600' }
-        };
-
-        document.addEventListener('DOMContentLoaded', () => {
-            chargerCategories();
-            chargerCatalogue();
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initPage({ type: 'AGENT', page: 'catalogue' });
             document.getElementById('formAjout').addEventListener('submit', ajouterMateriel);
-            document.getElementById('formCategorie').addEventListener('submit', ajouterCategorie);
             document.getElementById('typeGestion').addEventListener('change', basculerChamps);
+            ['filtreTexte', 'filtreCategorie', 'filtreStatut'].forEach(id =>
+                document.getElementById(id).addEventListener('input', afficherCatalogue));
             basculerChamps();
+            await chargerCategories();
+            chargerCatalogue();
         });
 
         function basculerChamps() {
             const estDurable = document.getElementById('typeGestion').value === 'DURABLE';
             document.getElementById('champDurable').classList.toggle('hidden', !estDurable);
             document.getElementById('champConsommable').classList.toggle('hidden', estDurable);
+            document.getElementById('codeUnique').required = estDurable;
         }
-
-        function messageCourt(id, texte, succes) {
-            afficherMessage(id, texte, succes, 'text-xs');
-        }
-
-        // ---------- Catégories ----------
 
         async function chargerCategories() {
-            const categories = await appelApi('/categories');
-
-            // Menu déroulant du formulaire d'ajout de matériel
+            categories = await appelApi('/categories');
             const select = document.getElementById('categorie');
-            select.innerHTML = '';
-            if (categories.length === 0) {
-                select.innerHTML = '<option value="">Aucune catégorie — ajoutez-en une</option>';
-            } else {
-                categories.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c.id;
-                    opt.textContent = c.nom;
-                    select.appendChild(opt);
-                });
-            }
-
-            // Liste des catégories avec bouton supprimer
-            const conteneur = document.getElementById('listeCategories');
-            conteneur.innerHTML = '';
-            if (categories.length === 0) {
-                conteneur.innerHTML = '<p class="text-xs text-slate-500 italic">Aucune catégorie.</p>';
-                return;
-            }
-
-            categories.forEach(c => {
-                const ligne = document.createElement('div');
-                ligne.className = "flex justify-between items-center text-sm border border-slate-200 rounded-lg px-3 py-2";
-                ligne.innerHTML = `
-                    <span class="text-slate-700">${echapper(c.nom)}</span>
-                    <button class="text-red-500 hover:text-red-700 text-xs font-medium">Supprimer</button>
-                `;
-                ligne.querySelector('button').addEventListener('click', () => supprimerCategorie(c.id, c.nom));
-                conteneur.appendChild(ligne);
-            });
+            select.innerHTML = categories.length
+                ? categories.map(c => `<option value="${c.id}">${echapper(c.nom)}</option>`).join('')
+                : '<option value="">Aucune catégorie — créez-en une</option>';
+            document.getElementById('filtreCategorie').innerHTML = '<option value="">Toutes les catégories</option>' +
+                categories.map(c => `<option value="${c.id}">${echapper(c.nom)}</option>`).join('');
         }
-
-        async function ajouterCategorie(e) {
-            e.preventDefault();
-            const nom = document.getElementById('nomCategorie').value.trim();
-            try {
-                const result = await appelApi('/categories', { method: 'POST', body: { nom } });
-                messageCourt('messageCategorie', result.message, result.success);
-                if (result.success) {
-                    document.getElementById('formCategorie').reset();
-                    chargerCategories();
-                }
-            } catch (err) {
-                messageCourt('messageCategorie', "Erreur de connexion au serveur.", false);
-            }
-        }
-
-        async function supprimerCategorie(id, nom) {
-            if (!confirm(`Supprimer la catégorie "${nom}" ?`)) return;
-            try {
-                const result = await appelApi(`/categories/${id}`, { method: 'DELETE' });
-                messageCourt('messageCategorie', result.message, result.success);
-                if (result.success) chargerCategories();
-            } catch (err) {
-                messageCourt('messageCategorie', "Erreur de connexion au serveur.", false);
-            }
-        }
-
-        // ---------- Matériel ----------
 
         async function chargerCatalogue() {
-            const materiels = await appelApi('/materiels');
+            materiels = await appelApi('/materiels');
+            afficherCatalogue();
+        }
+
+        function afficherCatalogue() {
+            const texte = document.getElementById('filtreTexte').value.toLowerCase().trim();
+            const categorieId = document.getElementById('filtreCategorie').value;
+            const statut = document.getElementById('filtreStatut').value;
+
+            const liste = materiels.filter(m =>
+                (!texte || `${m.designation} ${m.codeUnique || ''}`.toLowerCase().includes(texte)) &&
+                (!categorieId || String(m.categorie.id) === categorieId) &&
+                (!statut || (statut === 'STOCK_BAS' ? m.stockBas : m.typeGestion === 'DURABLE' && m.statut === statut)));
+
+            document.getElementById('compteCatalogue').textContent = `${liste.length} matériel(s) sur ${materiels.length}`;
             const conteneur = document.getElementById('listeCatalogue');
+            if (!liste.length) { conteneur.innerHTML = etatVide('Aucun matériel ne correspond.'); return; }
+
             conteneur.innerHTML = '';
-
-            if (materiels.length === 0) {
-                conteneur.innerHTML = '<p class="text-sm text-slate-500 italic">Aucun matériel dans le catalogue.</p>';
-                return;
-            }
-
-            materiels.forEach(m => {
-                const statut = LABELS_STATUT[m.statut] || { texte: m.statut, classe: 'bg-slate-100 text-slate-600' };
+            liste.forEach(m => {
                 const estDurable = m.typeGestion === 'DURABLE';
-                const infoQuantite = estDurable
-                    ? `<span class="text-xs text-slate-400">${echapper(m.codeUnique || '')}</span>`
-                    : `<span class="text-xs ${m.quantiteStock === 0 ? 'text-red-600 font-semibold' : 'text-slate-400'}">Stock : ${m.quantiteStock}</span>`;
+                const statutInfo = LABELS_STATUT_MATERIEL[m.statut];
+                const info = estDurable
+                    ? `<span class="text-xs text-slate-500 font-mono">${echapper(m.codeUnique || '')}</span> ${badge(statutInfo)}`
+                    : `<span class="text-xs ${m.stockBas ? 'text-red-600 font-semibold' : 'text-slate-500'}">Stock : ${m.quantiteStock}${m.stockBas ? ' ⚠' : ''}</span>
+                       <span class="text-xs text-slate-400">(alerte à ${m.seuilAlerte})</span>`;
 
-                // Durable : changement de statut manuel (EMPRUNTE n'est jamais proposé, il vient du cycle d'emprunt)
-                // Consommable : réapprovisionnement
                 let actions;
                 if (estDurable) {
-                    const options = Object.entries(LABELS_STATUT)
-                        .filter(([cle]) => cle !== 'EMPRUNTE')
-                        .map(([cle, info]) => `<option value="${cle}" ${cle === m.statut ? 'selected' : ''}>${info.texte}</option>`)
-                        .join('');
                     actions = m.statut === 'EMPRUNTE'
-                        ? '<span class="text-[11px] text-slate-400 italic">Emprunté en ce moment</span>'
-                        : `<select class="choix-statut px-2 py-1.5 border border-slate-300 rounded-lg text-xs">${options}</select>`;
+                        ? '<span class="text-xs text-slate-400 italic">Emprunté en ce moment</span>'
+                        : `<select class="choix-statut px-2 py-1.5 border border-slate-300 rounded-lg text-xs" aria-label="Statut">${
+                            Object.entries(LABELS_STATUT_MATERIEL).filter(([cle]) => cle !== 'EMPRUNTE')
+                                .map(([cle, l]) => `<option value="${cle}" ${cle === m.statut ? 'selected' : ''}>${l.texte}</option>`).join('')}</select>`;
                 } else {
-                    actions = `
-                        <input type="number" min="1" value="10" class="qte-ajout w-16 px-2 py-1.5 border border-slate-300 rounded-lg text-xs text-center">
-                        <button class="btn-stock px-2 py-1.5 text-xs font-medium rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50">+ Stock</button>`;
+                    actions = `<button class="btn-stock px-2 py-1.5 text-xs font-medium rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50">+ Stock</button>`;
                 }
 
                 const ligne = document.createElement('div');
-                ligne.className = "flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 border border-slate-200 rounded-lg text-sm";
+                ligne.className = 'flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 border border-slate-200 rounded-lg text-sm';
                 ligne.innerHTML = `
-                    <div class="space-y-0.5">
-                        <div class="font-medium text-slate-800">${echapper(m.designation)}</div>
-                        <div class="flex flex-wrap gap-2 items-center">
-                            <span class="text-xs text-slate-400">${echapper(m.categorie ? m.categorie.nom : '—')}</span>
-                            ${infoQuantite}
-                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${statut.classe}">${statut.texte}</span>
-                        </div>
+                    <div class="space-y-1">
+                        <div class="font-medium text-slate-800">${echapper(m.designation)}
+                            <span class="text-xs font-normal text-slate-400">· ${echapper(m.categorie.nom)} · ${estDurable ? 'durable' : 'consommable'}</span></div>
+                        <div class="flex flex-wrap gap-2 items-center">${info}</div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
                         ${actions}
-                        <button class="btn-supprimer text-red-500 hover:text-red-700 text-xs font-medium px-3 py-1.5 border border-red-200 rounded-lg hover:bg-red-50">
-                            Supprimer
-                        </button>
-                    </div>
-                `;
+                        <button class="btn-modifier px-2 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">Modifier</button>
+                        <button class="btn-supprimer px-2 py-1.5 text-xs font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50">Supprimer</button>
+                    </div>`;
 
-                ligne.querySelector('.btn-supprimer').addEventListener('click', () => supprimerMateriel(m.id, m.designation));
-                const choixStatut = ligne.querySelector('.choix-statut');
-                if (choixStatut) choixStatut.addEventListener('change', () => changerStatut(m.id, choixStatut.value));
-                const btnStock = ligne.querySelector('.btn-stock');
-                if (btnStock) btnStock.addEventListener('click', () => reapprovisionner(m.id, parseInt(ligne.querySelector('.qte-ajout').value)));
-
+                const choix = ligne.querySelector('.choix-statut');
+                if (choix) choix.addEventListener('change', () => action(`/materiels/${m.id}/statut`, 'PATCH', { statut: choix.value }));
+                const stock = ligne.querySelector('.btn-stock');
+                if (stock) stock.addEventListener('click', () => reapprovisionner(m));
+                ligne.querySelector('.btn-modifier').addEventListener('click', () => modifier(m));
+                ligne.querySelector('.btn-supprimer').addEventListener('click', () => supprimer(m));
                 conteneur.appendChild(ligne);
             });
         }
@@ -262,53 +182,71 @@
             e.preventDefault();
             const typeGestion = document.getElementById('typeGestion').value;
             const categorieId = document.getElementById('categorie').value;
-
             if (!categorieId) {
-                messageCourt('messageAjout', "Veuillez d'abord créer et sélectionner une catégorie.", false);
+                afficherMessage('messageAjout', "Créez d'abord une catégorie (page Salles & catégories).", false);
                 return;
             }
-
-            const payload = {
-                designation: document.getElementById('designation').value.trim(),
-                categorieId: parseInt(categorieId),
-                typeGestion: typeGestion,
-                codeUnique: typeGestion === 'DURABLE' ? document.getElementById('codeUnique').value.trim() : null,
-                quantiteStock: typeGestion === 'CONSOMMABLE' ? parseInt(document.getElementById('quantiteStock').value) : null
-            };
-
-            try {
-                const result = await appelApi('/materiels', { method: 'POST', body: payload });
-                messageCourt('messageAjout', result.message, result.success);
-                if (result.success) {
-                    document.getElementById('formAjout').reset();
-                    basculerChamps();
-                    chargerCatalogue();
+            const estDurable = typeGestion === 'DURABLE';
+            const resultat = await appelApi('/materiels', {
+                method: 'POST',
+                body: {
+                    designation: document.getElementById('designation').value.trim(),
+                    categorieId: parseInt(categorieId),
+                    typeGestion,
+                    codeUnique: estDurable ? document.getElementById('codeUnique').value.trim() : null,
+                    quantiteStock: estDurable ? null : parseInt(document.getElementById('quantiteStock').value || '0'),
+                    seuilAlerte: estDurable ? null : parseInt(document.getElementById('seuilAlerte').value || '0')
                 }
-            } catch (err) {
-                messageCourt('messageAjout', "Erreur de connexion au serveur.", false);
+            });
+            afficherMessage('messageAjout', resultat.message, resultat.success);
+            if (resultat.success) {
+                document.getElementById('designation').value = '';
+                document.getElementById('codeUnique').value = '';
+                chargerCatalogue();
             }
         }
 
-        async function supprimerMateriel(id, nom) {
-            if (!confirm(`Supprimer "${nom}" du catalogue ?`)) return;
-            await actionCatalogue(`/materiels/${id}`, { method: 'DELETE' });
-        }
-
-        async function changerStatut(id, statut) {
-            await actionCatalogue(`/materiels/${id}/statut`, { method: 'PATCH', body: { statut } });
-        }
-
-        async function reapprovisionner(id, quantite) {
-            await actionCatalogue(`/materiels/${id}/stock`, { method: 'PATCH', body: { quantite } });
-        }
-
-        async function actionCatalogue(chemin, options) {
-            try {
-                const result = await appelApi(chemin, options);
-                messageCourt('messageCatalogue', result.message, result.success);
-            } catch (err) {
-                messageCourt('messageCatalogue', "Erreur de connexion au serveur.", false);
+        async function modifier(m) {
+            const estDurable = m.typeGestion === 'DURABLE';
+            const champs = [
+                { nom: 'designation', label: 'Désignation', valeur: m.designation, requis: true },
+                { nom: 'categorieId', label: 'Catégorie', type: 'select', valeur: m.categorie.id,
+                  options: categories.map(c => ({ valeur: c.id, texte: c.nom })) }
+            ];
+            if (estDurable) {
+                champs.push({ nom: 'codeUnique', label: 'Code unique', valeur: m.codeUnique, requis: true });
+            } else {
+                champs.push({ nom: 'seuilAlerte', label: "Seuil d'alerte de stock", type: 'number', valeur: m.seuilAlerte,
+                              aide: 'Une alerte apparaît quand le stock atteint ce nombre.' });
             }
+            const v = await demanderFormulaire({ titre: `Modifier « ${m.designation} »`, champs, bouton: 'Enregistrer' });
+            if (!v) return;
+            await action(`/materiels/${m.id}`, 'PUT', {
+                designation: v.designation, categorieId: parseInt(v.categorieId), typeGestion: m.typeGestion,
+                codeUnique: estDurable ? v.codeUnique : null,
+                seuilAlerte: estDurable ? null : parseInt(v.seuilAlerte || '0')
+            });
+        }
+
+        async function reapprovisionner(m) {
+            const v = await demanderFormulaire({
+                titre: `Réapprovisionner « ${m.designation} »`,
+                texte: `Stock actuel : ${m.quantiteStock}.`,
+                champs: [{ nom: 'quantite', label: 'Quantité à ajouter', type: 'number', valeur: 10, requis: true }],
+                bouton: 'Ajouter au stock'
+            });
+            if (v) await action(`/materiels/${m.id}/stock`, 'PATCH', { quantite: parseInt(v.quantite || '0') });
+        }
+
+        async function supprimer(m) {
+            if (await confirmer('Supprimer du catalogue', `Supprimer « ${m.designation} » ? Cette action est définitive.`, 'Supprimer', true)) {
+                await action(`/materiels/${m.id}`, 'DELETE');
+            }
+        }
+
+        async function action(chemin, method, body) {
+            const resultat = await appelApi(chemin, { method, body });
+            afficherMessage('messageCatalogue', resultat.message, resultat.success);
             chargerCatalogue();
         }
     </script>

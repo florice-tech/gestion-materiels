@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salles et catégories - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/commun.js"></script>
+</head>
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
+
+    <main class="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800">Salles et catégories</h1>
+            <p class="text-sm text-slate-500">Les salles sont proposées aux délégués dans leurs demandes ; les catégories classent le catalogue.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="blocs"></div>
+    </main>
+
+    <script>
+        // Les deux listes fonctionnent de la même façon : on décrit chacune une fois.
+        const LISTES = [
+            { cle: 'salles', titre: 'Salles', singulier: 'salle', exemple: 'ex : Salle 203',
+              aide: "Supprimer ou renommer une salle ne change pas l'historique des emprunts." },
+            { cle: 'categories', titre: 'Catégories de matériel', singulier: 'catégorie', exemple: 'ex : INFORMATIQUE',
+              aide: 'Une catégorie utilisée par du matériel ne peut pas être supprimée.' }
+        ];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initPage({ type: 'AGENT', page: 'parametres' });
+            const blocs = document.getElementById('blocs');
+            LISTES.forEach(l => {
+                blocs.insertAdjacentHTML('beforeend', `
+                    <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                        <h2 class="font-bold text-slate-800">${l.titre}</h2>
+                        <form id="form-${l.cle}" class="flex gap-2">
+                            <input type="text" required maxlength="100" placeholder="${l.exemple}" aria-label="Nouvelle ${l.singulier}"
+                                   class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm">Ajouter</button>
+                        </form>
+                        <p class="text-xs text-slate-400">${l.aide}</p>
+                        <div id="message-${l.cle}" class="hidden"></div>
+                        <ul id="liste-${l.cle}" class="divide-y divide-slate-100 border border-slate-200 rounded-lg"></ul>
+                    </section>`);
+                document.getElementById(`form-${l.cle}`).addEventListener('submit', e => ajouter(e, l));
+                charger(l);
+            });
+        });
+
+        async function charger(l) {
+            const elements = await appelApi(`/${l.cle}`);
+            const ul = document.getElementById(`liste-${l.cle}`);
+            if (!elements.length) { ul.innerHTML = `<li>${etatVide('Aucune ' + l.singulier + '.')}</li>`; return; }
+            ul.innerHTML = '';
+            elements.forEach(el => {
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center px-3 py-2 text-sm';
+                li.innerHTML = `<span class="text-slate-700">${echapper(el.nom)}</span>
+                    <span class="flex gap-3">
+                        <button data-renommer class="text-xs text-blue-600 hover:underline">Renommer</button>
+                        <button data-supprimer class="text-xs text-red-600 hover:underline">Supprimer</button>
+                    </span>`;
+                li.querySelector('[data-renommer]').addEventListener('click', () => renommer(l, el));
+                li.querySelector('[data-supprimer]').addEventListener('click', () => supprimer(l, el));
+                ul.appendChild(li);
+            });
+        }
+
+        async function ajouter(e, l) {
+            e.preventDefault();
+            const champ = e.target.querySelector('input');
+            const resultat = await appelApi(`/${l.cle}`, { method: 'POST', body: { nom: champ.value.trim() } });
+            afficherMessage(`message-${l.cle}`, resultat.message, resultat.success);
+            if (resultat.success) { champ.value = ''; charger(l); }
+        }
+
+        async function renommer(l, el) {
+            const v = await demanderFormulaire({
+                titre: `Renommer la ${l.singulier}`,
+                champs: [{ nom: 'nom', label: 'Nouveau nom', valeur: el.nom, requis: true }],
+                bouton: 'Renommer'
+            });
+            if (!v) return;
+            const resultat = await appelApi(`/${l.cle}/${el.id}`, { method: 'PUT', body: { nom: v.nom.trim() } });
+            afficherMessage(`message-${l.cle}`, resultat.message, resultat.success);
+            charger(l);
+        }
+
+        async function supprimer(l, el) {
+            if (!await confirmer(`Supprimer la ${l.singulier}`, `Supprimer « ${el.nom} » ?`, 'Supprimer', true)) return;
+            const resultat = await appelApi(`/${l.cle}/${el.id}`, { method: 'DELETE' });
+            afficherMessage(`message-${l.cle}`, resultat.message, resultat.success);
+            charger(l);
+        }
+    </script>
+</body>
+</html>

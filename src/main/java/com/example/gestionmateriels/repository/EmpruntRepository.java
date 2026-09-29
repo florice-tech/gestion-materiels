@@ -1,32 +1,32 @@
 package com.example.gestionmateriels.repository;
 
 import com.example.gestionmateriels.model.Emprunt;
+import com.example.gestionmateriels.model.Emprunt.StatutEmprunt;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
 public interface EmpruntRepository extends JpaRepository<Emprunt, Long> {
 
-    // Emprunts en cours : pas encore de date de retour
-    List<Emprunt> findByDateRetourIsNullOrderByDateSortieDesc();
-
     // Historique complet, du plus récent au plus ancien
-    List<Emprunt> findAllByOrderByDateSortieDesc();
+    List<Emprunt> findAllByOrderByDateDemandeDesc();
 
-    // Recherche par nom de délégué (sans tenir compte des majuscules)
-    List<Emprunt> findByDelegueNomContainingIgnoreCase(String nom);
+    // Demandes à traiter, la plus ancienne d'abord
+    List<Emprunt> findByStatutEmpruntOrderByDateDemandeAsc(StatutEmprunt statut);
 
-    // Emprunts remis par un agent donné (traçabilité)
-    List<Emprunt> findByAgentSortieId(Long agentId);
+    // Emprunts en cours, les plus anciens d'abord
+    List<Emprunt> findByStatutEmpruntOrderByDateSortieAsc(StatutEmprunt statut);
 
-    // Emprunts validés et pas encore rendus (ceux qu'on peut clôturer au retour)
-    List<Emprunt> findByStatutEmpruntAndDateRetourIsNullOrderByDateSortieDesc(Emprunt.StatutEmprunt statutEmprunt);
+    // Demandes et emprunts d'un délégué
+    List<Emprunt> findByDelegueIdOrderByDateDemandeDesc(Long delegueId);
 
-    // Toutes les demandes/emprunts d'un délégué, du plus récent au plus ancien
-    List<Emprunt> findByDelegueIdOrderByDateSortieDesc(Long delegueId);
+    long countByStatutEmprunt(StatutEmprunt statut);
 
-    // Demandes en attente de validation par un agent
-    List<Emprunt> findByStatutEmpruntOrderByDateSortieAsc(Emprunt.StatutEmprunt statutEmprunt);
+    // Pour les statistiques : sorties effectives depuis une date
+    List<Emprunt> findByDateSortieGreaterThanEqual(LocalDateTime depuis);
+
+    long countByDateRetourGreaterThanEqual(LocalDateTime depuis);
 }

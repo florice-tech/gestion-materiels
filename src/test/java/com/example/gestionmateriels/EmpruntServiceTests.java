@@ -1,37 +1,38 @@
 package com.example.gestionmateriels;
 
+import com.example.gestionmateriels.dto.ArticleDemande;
 import com.example.gestionmateriels.dto.DetailRetourRequest;
 import com.example.gestionmateriels.model.*;
+import com.example.gestionmateriels.model.Emprunt.StatutEmprunt;
 import com.example.gestionmateriels.repository.*;
-import com.example.gestionmateriels.service.ArticleEmprunteDTO;
 import com.example.gestionmateriels.service.EmpruntService;
 import com.example.gestionmateriels.service.OperationException;
+import com.example.gestionmateriels.service.StatistiqueService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Teste le cycle complet d'un emprunt sur une base H2 en mémoire,
- * à partir des données de démonstration insérées par DataInitializer.
- * Chaque test est annulé (rollback) à la fin, les tests sont donc indépendants.
+ * Cycle complet d'un emprunt sur une base H2 en mémoire, à partir des données de démonstration.
+ * Chaque test est annulé (rollback) à la fin : les tests sont indépendants.
  */
 @SpringBootTest
 @Transactional
 class EmpruntServiceTests {
 
     @Autowired private EmpruntService empruntService;
+    @Autowired private StatistiqueService statistiqueService;
     @Autowired private MaterielRepository materielRepository;
     @Autowired private DelegueRepository delegueRepository;
     @Autowired private AgentRepository agentRepository;
-    @Autowired private DetailEmpruntRepository detailEmpruntRepository;
     @Autowired private EmpruntRepository empruntRepository;
 
     private Delegue delegue;
@@ -41,19 +42,23 @@ class EmpruntServiceTests {
 
     @BeforeEach
     void chargerDonnees() {
-        delegue = delegueRepository.findByIdentifiant("pkodjo").orElseThrow();
-        agent = agentRepository.findByIdentifiant("mdaniel").orElseThrow();
-        videoprojecteur = materielRepository.findByCodeUnique("VP-01").orElseThrow();
+        delegue = delegueRepository.findByIdentifiantIgnoreCase("pkodjo").orElseThrow();
+        agent = agentRepository.findByIdentifiantIgnoreCase("mdaniel").orElseThrow();
+        videoprojecteur = materielRepository.findByCodeUniqueIgnoreCase("VP-01").orElseThrow();
         marqueur = materielRepository.findAll().stream()
-                .filter(m -> m.getDesignation().equals("Marqueur Noir"))
-                .findFirst().orElseThrow();
+                .filter(m -> m.getDesignation().equals("Marqueur Noir")).findFirst().orElseThrow();
     }
 
     private Emprunt demander(int quantiteMarqueurs) {
         return empruntService.demanderEmprunt(delegue.getId(), "101", LocalTime.of(12, 0), List.of(
-                new ArticleEmprunteDTO(videoprojecteur.getId(), 1),
-                new ArticleEmprunteDTO(marqueur.getId(), quantiteMarqueurs)
-        ));
+                new ArticleDemande(videoprojecteur.getId(), 1),
+                new ArticleDemande(marqueur.getId(), quantiteMarqueurs)));
+    }
+
+    private DetailEmprunt ligneDurable(Emprunt emprunt) {
+        return emprunt.getDetails().stream()
+                .filter(d -> d.getMateriel().getTypeGestion() == Materiel.TypeGestion.DURABLE)
+                .findFirst().orElseThrow();
     }
 
     @Test
@@ -61,32 +66,29 @@ class EmpruntServiceTests {
         int stockInitial = marqueur.getQuantiteStock();
 
         Emprunt emprunt = demander(3);
-        assertEquals(Emprunt.StatutEmprunt.EN_ATTENTE, emprunt.getStatutEmprunt());
+        assertEquals(StatutEmprunt.EN_ATTENTE, emprunt.getStatutEmprunt());
+        assertNotNull(emprunt.getDateDemande());
+        assertNull(emprunt.getDateSortie(), "pas encore sorti tant que la demande n'est pas validée");
         assertEquals(Materiel.StatutMateriel.EMPRUNTE, videoprojecteur.getStatut());
         assertEquals(stockInitial - 3, marqueur.getQuantiteStock());
         assertEquals(1, empruntService.listerDemandesEnAttente().size());
-        assertTrue(empruntService.listerEmpruntsActifs().isEmpty(), "une demande en attente n'est pas un emprunt actif");
+        assertTrue(empruntService.listerEmpruntsEnCours().isEmpty());
 
         empruntService.validerEmprunt(emprunt.getId(), agent.getId());
-        assertEquals(Emprunt.StatutEmprunt.EN_COURS, emprunt.getStatutEmprunt());
-        assertEquals(1, empruntService.listerEmpruntsActifs().size());
+        assertEquals(StatutEmprunt.EN_COURS, emprunt.getStatutEmprunt());
+        assertNotNull(emprunt.getDateSortie());
+        assertEquals(agent.getId(), emprunt.getAgentSortie().getId());
+        assertEquals(1, empruntService.listerEmpruntsEnCours().size());
 
-        // Retour : un état pour le seul article durable (le vidéoprojecteur)
-        List<DetailRetourRequest> etats = new ArrayList<>();
-        for (DetailEmprunt detail : detailEmpruntRepository.findByEmpruntId(emprunt.getId())) {
-            if (detail.getMateriel().getTypeGestion() == Materiel.TypeGestion.DURABLE) {
-                DetailRetourRequest etat = new DetailRetourRequest();
-                etat.setDetailId(detail.getId());
-                etat.setEtatRetour(Emprunt.EtatRetour.ENDOMMAGE);
-                etats.add(etat);
-            }
-        }
-        empruntService.enregistrerRetour(emprunt.getId(), agent.getId(), "Lampe faible", etats);
+        empruntService.enregistrerRetour(emprunt.getId(), agent.getId(), "Lampe faible",
+                List.of(new DetailRetourRequest(ligneDurable(emprunt).getId(), Emprunt.EtatRetour.ENDOMMAGE)));
 
+        assertEquals(StatutEmprunt.RETOURNE, emprunt.getStatutEmprunt());
         assertNotNull(emprunt.getDateRetour());
+        assertEquals("Lampe faible", emprunt.getObservations());
         assertEquals(Materiel.StatutMateriel.MAINTENANCE, videoprojecteur.getStatut());
         assertEquals(stockInitial - 3, marqueur.getQuantiteStock(), "les consommables ne reviennent pas en stock");
-        assertTrue(empruntService.listerEmpruntsActifs().isEmpty());
+        assertTrue(empruntService.listerEmpruntsEnCours().isEmpty());
         assertEquals(1, empruntService.listerEmpruntsDelegue(delegue.getId()).size());
     }
 
@@ -101,17 +103,30 @@ class EmpruntServiceTests {
     }
 
     @Test
-    void refusDUneDemandeLibereLeMateriel() {
+    void refusConserveLaFicheEtLibereLeMateriel() {
         int stockInitial = marqueur.getQuantiteStock();
         Emprunt emprunt = demander(5);
-        Long id = emprunt.getId();
 
-        empruntService.annulerDemande(id, null);
+        empruntService.refuserDemande(emprunt.getId(), agent.getId(), "Matériel réservé pour un examen");
 
+        assertEquals(StatutEmprunt.REFUSEE, emprunt.getStatutEmprunt());
+        assertEquals("Matériel réservé pour un examen", emprunt.getMotifRefus());
+        assertEquals(agent.getId(), emprunt.getAgentRefus().getId());
         assertEquals(Materiel.StatutMateriel.DISPONIBLE, videoprojecteur.getStatut());
         assertEquals(stockInitial, marqueur.getQuantiteStock());
-        assertTrue(empruntRepository.findById(id).isEmpty());
-        assertTrue(detailEmpruntRepository.findByEmpruntId(id).isEmpty());
+        assertTrue(empruntRepository.findById(emprunt.getId()).isPresent(), "la fiche reste dans l'historique");
+    }
+
+    @Test
+    void annulationParLeDelegue() {
+        int stockInitial = marqueur.getQuantiteStock();
+        Emprunt emprunt = demander(2);
+
+        empruntService.annulerDemande(emprunt.getId(), delegue.getId());
+
+        assertEquals(StatutEmprunt.ANNULEE, emprunt.getStatutEmprunt());
+        assertEquals(Materiel.StatutMateriel.DISPONIBLE, videoprojecteur.getStatut());
+        assertEquals(stockInitial, marqueur.getQuantiteStock());
     }
 
     @Test
@@ -122,23 +137,55 @@ class EmpruntServiceTests {
     }
 
     @Test
-    void uneDemandeValideeNePeutPlusEtreAnnulee() {
+    void uneDemandeValideeNePeutPlusEtreAnnuleeNiRefusee() {
         Emprunt emprunt = demander(1);
         empruntService.validerEmprunt(emprunt.getId(), agent.getId());
-        assertThrows(OperationException.class, () -> empruntService.annulerDemande(emprunt.getId(), null));
+        assertThrows(OperationException.class, () -> empruntService.annulerDemande(emprunt.getId(), delegue.getId()));
+        assertThrows(OperationException.class, () -> empruntService.refuserDemande(emprunt.getId(), agent.getId(), null));
     }
 
     @Test
     void stockInsuffisantRefuse() {
         int stock = marqueur.getQuantiteStock();
         assertThrows(OperationException.class, () -> empruntService.demanderEmprunt(
-                delegue.getId(), "101", null, List.of(new ArticleEmprunteDTO(marqueur.getId(), stock + 1))));
+                delegue.getId(), "101", null, List.of(new ArticleDemande(marqueur.getId(), stock + 1))));
     }
 
     @Test
     void materielDurableDejaEmprunteRefuse() {
         demander(1);
         assertThrows(OperationException.class, () -> empruntService.demanderEmprunt(
-                delegue.getId(), "102", null, List.of(new ArticleEmprunteDTO(videoprojecteur.getId(), 1))));
+                delegue.getId(), "102", null, List.of(new ArticleDemande(videoprojecteur.getId(), 1))));
+    }
+
+    @Test
+    void salleInconnueRefusee() {
+        OperationException e = assertThrows(OperationException.class, () -> empruntService.demanderEmprunt(
+                delegue.getId(), "Salle imaginaire", null, List.of(new ArticleDemande(marqueur.getId(), 1))));
+        assertTrue(e.getMessage().contains("Salle inconnue"));
+    }
+
+    @Test
+    void memeMaterielDeuxFoisRefuse() {
+        assertThrows(OperationException.class, () -> empruntService.demanderEmprunt(
+                delegue.getId(), "101", null, List.of(
+                        new ArticleDemande(marqueur.getId(), 1), new ArticleDemande(marqueur.getId(), 2))));
+    }
+
+    @Test
+    void retardDetecteEtCompteDansLeTableauDeBord() {
+        Emprunt emprunt = demander(1);
+        empruntService.validerEmprunt(emprunt.getId(), agent.getId());
+        // Sorti hier, à rendre avant midi : en retard
+        emprunt.setDateSortie(LocalDateTime.now().minusDays(1));
+        emprunt.setHeureRetourPrevue(LocalTime.NOON);
+
+        assertTrue(emprunt.isEnRetard());
+        StatistiqueService.TableauDeBord tableau = statistiqueService.tableauDeBord();
+        assertEquals(1, tableau.compteurs().empruntsEnCours());
+        assertEquals(1, tableau.compteurs().empruntsEnRetard());
+        assertEquals(7, tableau.activite7Jours().size());
+        assertTrue(tableau.stocksBas().stream().anyMatch(m -> m.getDesignation().equals("Effaceur")),
+                "l'effaceur (stock 5, seuil 5) est en stock bas");
     }
 }

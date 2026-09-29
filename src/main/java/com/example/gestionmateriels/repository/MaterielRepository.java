@@ -13,15 +13,15 @@ import java.util.Optional;
 @Repository
 public interface MaterielRepository extends JpaRepository<Materiel, Long> {
 
-    // Matériel par statut (ex : tout ce qui est DISPONIBLE ou A_VERIFIER)
-    List<Materiel> findByStatut(StatutMateriel statut);
+    List<Materiel> findAllByOrderByDesignationAsc();
 
-    // Matériel par catégorie (ex : AUDIOVISUEL)
-    List<Materiel> findByCategorie(Categorie categorie);
+    boolean existsByCategorie(Categorie categorie);
 
-    // Durable ou consommable
-    List<Materiel> findByTypeGestion(TypeGestion typeGestion);
+    Optional<Materiel> findByCodeUniqueIgnoreCase(String codeUnique);
 
-    // Retrouver un équipement par son code unique (scan / saisie)
-    Optional<Materiel> findByCodeUnique(String codeUnique);
+    long countByTypeGestion(TypeGestion typeGestion);
+
+    long countByTypeGestionAndStatut(TypeGestion typeGestion, StatutMateriel statut);
+
+    List<Materiel> findByTypeGestionOrderByDesignationAsc(TypeGestion typeGestion);
 }

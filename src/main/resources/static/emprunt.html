@@ -7,109 +7,85 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="js/commun.js"></script>
 </head>
-<body class="bg-slate-100 font-sans p-6">
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
 
-    <div class="max-w-5xl mx-auto space-y-6">
-
-        <div class="bg-blue-600 p-4 rounded-xl text-white flex flex-wrap gap-3 justify-between items-center shadow-md">
+    <main class="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
+        <div class="flex flex-wrap items-end justify-between gap-2">
             <div>
-                <h1 class="text-xl font-bold">Demandes en attente</h1>
-                <p id="sousTitre" class="text-blue-100 text-sm">Poste de Surveillance</p>
+                <h1 class="text-2xl font-bold text-slate-800">Demandes en attente</h1>
+                <p class="text-sm text-slate-500">Vérifiez la demande, remettez le matériel puis validez. Un refus libère le matériel réservé.</p>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="accueil-agent.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Accueil</a>
-                <a href="retour.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Retours</a>
-                <a href="materiel.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Catalogue</a>
-                <a href="historique.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Historique</a>
-            </div>
+            <button id="btnActualiser" class="text-sm text-blue-600 hover:underline font-medium">↻ Actualiser</button>
         </div>
 
-        <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-            <div class="flex justify-between items-center">
-                <p class="text-sm text-slate-600">
-                    Vérifiez la demande, remettez le matériel au délégué puis cliquez sur <strong>Valider et remettre</strong>.
-                    Un refus libère immédiatement le matériel réservé.
-                </p>
-                <button id="btnActualiser" class="text-xs text-blue-600 hover:underline font-medium whitespace-nowrap ml-4">↻ Actualiser</button>
-            </div>
-
-            <div id="messageZone" class="hidden text-sm rounded-lg p-3"></div>
-
-            <div id="listeDemandes" class="space-y-3">
-                <p class="text-sm text-slate-500 italic">Chargement...</p>
-            </div>
-        </div>
-    </div>
+        <div id="messageZone" class="hidden"></div>
+        <div id="listeDemandes" class="space-y-3"></div>
+    </main>
 
     <script>
-        const agent = exigerSession('AGENT');
-
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('sousTitre').textContent = `Agent connecté : ${agent.nom} (${agent.role})`;
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initPage({ type: 'AGENT', page: 'demandes' });
             document.getElementById('btnActualiser').addEventListener('click', chargerDemandes);
             chargerDemandes();
+            setInterval(chargerDemandes, 30000);
         });
 
         async function chargerDemandes() {
+            const resultat = await appelApi('/emprunts/en-attente');
+            const demandes = resultat.success ? resultat.data : [];
             const conteneur = document.getElementById('listeDemandes');
-            let result;
-            try {
-                result = await appelApi('/emprunts/en-attente');
-            } catch (e) {
-                conteneur.innerHTML = '<p class="text-sm text-red-600">Erreur de connexion au serveur.</p>';
+
+            if (!demandes.length) {
+                conteneur.innerHTML = `<div class="bg-white rounded-xl border border-slate-200">${etatVide('Aucune demande en attente.')}</div>`;
                 return;
             }
 
-            const demandes = result.success ? result.data : [];
             conteneur.innerHTML = '';
-
-            if (demandes.length === 0) {
-                conteneur.innerHTML = '<p class="text-sm text-slate-500 italic py-6 text-center">Aucune demande en attente.</p>';
-                return;
-            }
-
             demandes.forEach(d => {
                 const heurePrevue = formaterHeure(d.heureRetourPrevue);
                 const carte = document.createElement('div');
-                carte.className = 'border border-slate-200 rounded-lg p-4 flex flex-col md:flex-row md:items-center gap-4';
+                carte.className = 'bg-white border border-slate-200 rounded-xl shadow-sm p-4 flex flex-col md:flex-row md:items-center gap-4';
                 carte.innerHTML = `
                     <div class="flex-1 space-y-1 text-sm">
-                        <div class="font-semibold text-slate-800">${echapper(d.delegue.nom)}
-                            <span class="text-xs font-normal text-slate-500">— ${echapper(d.delegue.filiereNiveau)}</span>
+                        <div class="font-semibold text-slate-800 text-base">${echapper(d.delegue.nom)}
+                            <span class="text-sm font-normal text-slate-500">— ${echapper(d.delegue.filiereNiveau)}</span>
                         </div>
                         <div class="text-xs text-slate-500">
                             Salle <span class="font-bold text-blue-600">${echapper(d.salle)}</span>
-                            · demandé le ${formaterDate(d.dateSortie)}
-                            ${heurePrevue ? `· retour prévu à ${heurePrevue}` : ''}
+                            · demandé le ${formaterDate(d.dateDemande)}
+                            ${heurePrevue ? `· retour prévu à <strong>${heurePrevue}</strong>` : '· pas d\'heure de retour indiquée'}
                         </div>
-                        <div class="text-xs text-slate-700 pt-1">${listeArticlesHtml(d)}</div>
+                        <div class="text-sm text-slate-700 pt-1">${listeArticlesHtml(d)}</div>
                     </div>
                     <div class="flex gap-2 shrink-0">
-                        <button data-action="refuser" data-id="${d.id}"
-                                class="px-3 py-2 text-xs font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50">Refuser</button>
-                        <button data-action="valider" data-id="${d.id}"
-                                class="px-3 py-2 text-xs font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700">Valider et remettre</button>
+                        <button data-action="refuser" class="px-3 py-2 text-sm font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50">Refuser</button>
+                        <button data-action="valider" class="px-3 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700">Valider et remettre</button>
                     </div>`;
+                carte.querySelector('[data-action=valider]').addEventListener('click', e => valider(d, e.target));
+                carte.querySelector('[data-action=refuser]').addEventListener('click', () => refuser(d));
                 conteneur.appendChild(carte);
-            });
-
-            conteneur.querySelectorAll('button[data-action]').forEach(btn => {
-                btn.addEventListener('click', () => traiter(btn.dataset.action, parseInt(btn.dataset.id), btn));
             });
         }
 
-        async function traiter(action, empruntId, bouton) {
-            if (action === 'refuser' && !confirm('Refuser cette demande ? Le matériel sera libéré.')) return;
-
+        async function valider(demande, bouton) {
             bouton.disabled = true;
-            try {
-                const result = action === 'valider'
-                    ? await appelApi('/emprunts/valider', { method: 'POST', body: { empruntId, agentSortieId: agent.id } })
-                    : await appelApi(`/emprunts/${empruntId}/refuser`, { method: 'POST' });
-                afficherMessage('messageZone', result.message, result.success);
-            } catch (e) {
-                afficherMessage('messageZone', 'Erreur de connexion au serveur.', false);
-            }
+            const resultat = await appelApi(`/emprunts/${demande.id}/valider`, { method: 'POST' });
+            afficherMessage('messageZone', resultat.message, resultat.success);
+            chargerDemandes();
+        }
+
+        async function refuser(demande) {
+            const saisie = await demanderFormulaire({
+                titre: 'Refuser la demande',
+                texte: `Demande de ${demande.delegue.nom} (salle ${demande.salle}). Le matériel réservé sera libéré.`,
+                champs: [{ nom: 'motif', label: 'Motif (visible par le délégué, facultatif)', type: 'textarea' }],
+                bouton: 'Refuser la demande',
+                danger: true
+            });
+            if (!saisie) return;
+            const resultat = await appelApi(`/emprunts/${demande.id}/refuser`, { method: 'POST', body: { motif: saisie.motif } });
+            afficherMessage('messageZone', resultat.message, resultat.success);
             chargerDemandes();
         }
     </script>
