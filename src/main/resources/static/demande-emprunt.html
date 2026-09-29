@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nouvelle Demande - Gestion Matériel</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/commun.js"></script>
 </head>
 <body class="bg-slate-100 font-sans p-6">
 
@@ -57,25 +58,29 @@
     </div>
 
     <script>
-        const API_BASE = 'http://localhost:8080/api';
-        let session = null;
+        const session = exigerSession('DELEGUE');
 
         document.addEventListener('DOMContentLoaded', () => {
-            const s = localStorage.getItem('utilisateurConnecte');
-            if (!s) { window.location.href = 'login.html'; return; }
-            session = JSON.parse(s);
-            if (session.type !== 'DELEGUE') { window.location.href = 'login.html'; return; }
-
             document.getElementById('sousTitre').textContent = `${session.nom} — ${session.filiereNiveau}`;
             chargerMateriel();
             document.getElementById('demandeForm').addEventListener('submit', soumettreDemande);
         });
 
         async function chargerMateriel() {
-            const res = await fetch(`${API_BASE}/materiels`);
-            const materiels = await res.json();
             const conteneur = document.getElementById('listeMateriel');
+            let materiels;
+            try {
+                materiels = await appelApi('/materiels');
+            } catch (e) {
+                conteneur.innerHTML = '<p class="text-sm text-red-600">Erreur de connexion au serveur.</p>';
+                return;
+            }
             conteneur.innerHTML = '';
+
+            if (!Array.isArray(materiels) || materiels.length === 0) {
+                conteneur.innerHTML = '<p class="text-sm text-slate-500 italic">Aucun matériel dans le catalogue.</p>';
+                return;
+            }
 
             materiels.forEach(m => {
                 const disponible = m.typeGestion === 'DURABLE' ? m.statut === 'DISPONIBLE' : m.quantiteStock > 0;
@@ -84,11 +89,11 @@
 
                 if (m.typeGestion === 'DURABLE') {
                     bloc.innerHTML = `
-                        <span class="font-medium text-slate-700">${m.designation}</span>
+                        <span class="font-medium text-slate-700">${echapper(m.designation)}${disponible ? '' : ' <span class="text-xs text-slate-400">(indisponible)</span>'}</span>
                         <input type="checkbox" data-id="${m.id}" class="materiel-check w-4 h-4 text-blue-600 rounded" ${disponible ? '' : 'disabled'}>`;
                 } else {
                     bloc.innerHTML = `
-                        <span class="font-medium text-slate-700">${m.designation} <span class="text-xs text-slate-400">(stock: ${m.quantiteStock})</span></span>
+                        <span class="font-medium text-slate-700">${echapper(m.designation)} <span class="text-xs text-slate-400">(stock: ${m.quantiteStock})</span></span>
                         <input type="number" min="0" max="${m.quantiteStock}" value="0" data-id="${m.id}" class="materiel-qty w-16 text-center border rounded py-1" ${disponible ? '' : 'disabled'}>`;
                 }
                 conteneur.appendChild(bloc);
@@ -108,7 +113,7 @@
             });
 
             if (articles.length === 0) {
-                afficherMessage("Sélectionnez au moins un matériel.", false);
+                afficherMessage(messageZone, "Sélectionnez au moins un matériel.", false);
                 return;
             }
 
@@ -120,25 +125,15 @@
             };
 
             try {
-                const res = await fetch(`${API_BASE}/emprunts/demande`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                });
-                const result = await res.json();
-                afficherMessage(result.message, result.success);
+                const result = await appelApi('/emprunts/demande', { method: 'POST', body: payload });
+                afficherMessage(messageZone, result.message, result.success);
                 if (result.success) {
                     document.getElementById('demandeForm').reset();
                     chargerMateriel();
                 }
             } catch (err) {
-                afficherMessage("Erreur de connexion au serveur.", false);
+                afficherMessage(messageZone, "Erreur de connexion au serveur.", false);
             }
-        }
-
-        function afficherMessage(texte, succes) {
-            const zone = document.getElementById('messageZone');
-            zone.textContent = texte;
-            zone.className = `text-sm rounded-lg p-3 ${succes ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`;
-            zone.classList.remove('hidden');
         }
     </script>
 </body>

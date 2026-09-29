@@ -1,5 +1,6 @@
 package com.example.gestionmateriels.controller;
 
+import com.example.gestionmateriels.dto.AnnulationRequest;
 import com.example.gestionmateriels.dto.DemandeEmpruntRequest;
 import com.example.gestionmateriels.dto.RetourRequest;
 import com.example.gestionmateriels.dto.ValidationRequest;
@@ -54,6 +55,38 @@ public class EmpruntController {
         }
     }
 
+    // POST /api/emprunts/{id}/refuser -> un agent refuse une demande en attente (le matériel est libéré)
+    @PostMapping("/{id}/refuser")
+    public ResponseEntity<Map<String, Object>> refuserDemande(@PathVariable Long id) {
+        try {
+            empruntService.annulerDemande(id, null);
+            Map<String, Object> reponse = new HashMap<>();
+            reponse.put("success", true);
+            reponse.put("message", "Demande refusée, le matériel est de nouveau disponible.");
+            return ResponseEntity.ok(reponse);
+        } catch (OperationException e) {
+            return erreur(e.getMessage());
+        }
+    }
+
+    // POST /api/emprunts/{id}/annuler -> le délégué annule sa propre demande en attente
+    @PostMapping("/{id}/annuler")
+    public ResponseEntity<Map<String, Object>> annulerDemande(@PathVariable Long id,
+                                                              @RequestBody AnnulationRequest requete) {
+        try {
+            if (requete.getDelegueId() == null) {
+                throw new OperationException("Le délégué est obligatoire.");
+            }
+            empruntService.annulerDemande(id, requete.getDelegueId());
+            Map<String, Object> reponse = new HashMap<>();
+            reponse.put("success", true);
+            reponse.put("message", "Votre demande a été annulée.");
+            return ResponseEntity.ok(reponse);
+        } catch (OperationException e) {
+            return erreur(e.getMessage());
+        }
+    }
+
     @PostMapping("/retour")
     public ResponseEntity<Map<String, Object>> enregistrerRetour(@RequestBody RetourRequest requete) {
         try {
@@ -91,6 +124,16 @@ public class EmpruntController {
     @GetMapping("/historique")
     public ResponseEntity<Map<String, Object>> listerHistorique() {
         List<Emprunt> emprunts = empruntService.listerHistorique();
+        Map<String, Object> reponse = new HashMap<>();
+        reponse.put("success", true);
+        reponse.put("data", emprunts);
+        return ResponseEntity.ok(reponse);
+    }
+
+    // GET /api/emprunts/delegue/{id} -> demandes et emprunts d'un délégué ("Mes emprunts")
+    @GetMapping("/delegue/{delegueId}")
+    public ResponseEntity<Map<String, Object>> listerEmpruntsDelegue(@PathVariable Long delegueId) {
+        List<Emprunt> emprunts = empruntService.listerEmpruntsDelegue(delegueId);
         Map<String, Object> reponse = new HashMap<>();
         reponse.put("success", true);
         reponse.put("data", emprunts);

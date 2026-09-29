@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Catalogue Matériel - Gestion Matériel</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/commun.js"></script>
 </head>
 <body class="bg-slate-100 font-sans p-6">
 
@@ -13,11 +14,13 @@
         <div class="bg-blue-600 p-4 rounded-xl text-white flex justify-between items-center shadow-md">
             <div>
                 <h1 class="text-xl font-bold">Catalogue de Matériel</h1>
-                <p class="text-blue-100 text-sm">Ajouter ou retirer des équipements</p>
+                <p class="text-blue-100 text-sm">Ajouter, retirer, changer le statut ou réapprovisionner</p>
             </div>
-            <div class="flex gap-2">
-                <a href="emprunt.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Emprunts</a>
+            <div class="flex flex-wrap gap-2">
+                <a href="accueil-agent.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Accueil</a>
+                <a href="emprunt.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Demandes</a>
                 <a href="retour.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Retours</a>
+                <a href="historique.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Historique</a>
             </div>
         </div>
 
@@ -87,6 +90,7 @@
 
             <div class="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <h2 class="font-bold text-slate-800 text-md mb-4">Matériel existant</h2>
+                <div id="messageCatalogue" class="hidden text-xs rounded-lg p-2 mb-3"></div>
                 <div id="listeCatalogue" class="space-y-2 max-h-[700px] overflow-y-auto">
                     <p class="text-sm text-slate-500 italic">Chargement...</p>
                 </div>
@@ -95,7 +99,15 @@
     </div>
 
     <script>
-        const API_BASE = 'http://localhost:8080/api';
+        exigerSession('AGENT');
+
+        const LABELS_STATUT = {
+            DISPONIBLE: { texte: 'Disponible', classe: 'bg-green-100 text-green-700' },
+            EMPRUNTE: { texte: 'Emprunté', classe: 'bg-blue-100 text-blue-700' },
+            A_VERIFIER: { texte: 'À vérifier', classe: 'bg-amber-100 text-amber-700' },
+            MAINTENANCE: { texte: 'Maintenance', classe: 'bg-red-100 text-red-700' },
+            HS: { texte: 'Hors service', classe: 'bg-slate-200 text-slate-600' }
+        };
 
         document.addEventListener('DOMContentLoaded', () => {
             chargerCategories();
@@ -112,21 +124,16 @@
             document.getElementById('champConsommable').classList.toggle('hidden', estDurable);
         }
 
-        const LABELS_STATUT = {
-            DISPONIBLE: { texte: 'Disponible', classe: 'bg-green-100 text-green-700' },
-            EMPRUNTE: { texte: 'Emprunté', classe: 'bg-blue-100 text-blue-700' },
-            A_VERIFIER: { texte: 'À vérifier', classe: 'bg-amber-100 text-amber-700' },
-            MAINTENANCE: { texte: 'Maintenance', classe: 'bg-red-100 text-red-700' },
-            HS: { texte: 'Hors service', classe: 'bg-slate-200 text-slate-600' }
-        };
+        function messageCourt(id, texte, succes) {
+            afficherMessage(id, texte, succes, 'text-xs');
+        }
 
         // ---------- Catégories ----------
 
         async function chargerCategories() {
-            const res = await fetch(`${API_BASE}/categories`);
-            const categories = await res.json();
+            const categories = await appelApi('/categories');
 
-            // Remplit le menu déroulant du formulaire d'ajout de matériel
+            // Menu déroulant du formulaire d'ajout de matériel
             const select = document.getElementById('categorie');
             select.innerHTML = '';
             if (categories.length === 0) {
@@ -140,7 +147,7 @@
                 });
             }
 
-            // Affiche la liste des catégories avec bouton supprimer
+            // Liste des catégories avec bouton supprimer
             const conteneur = document.getElementById('listeCategories');
             conteneur.innerHTML = '';
             if (categories.length === 0) {
@@ -152,64 +159,44 @@
                 const ligne = document.createElement('div');
                 ligne.className = "flex justify-between items-center text-sm border border-slate-200 rounded-lg px-3 py-2";
                 ligne.innerHTML = `
-                    <span class="text-slate-700">${c.nom}</span>
-                    <button data-id="${c.id}" data-nom="${c.nom}" class="btn-supprimer-cat text-red-500 hover:text-red-700 text-xs font-medium">Supprimer</button>
+                    <span class="text-slate-700">${echapper(c.nom)}</span>
+                    <button class="text-red-500 hover:text-red-700 text-xs font-medium">Supprimer</button>
                 `;
+                ligne.querySelector('button').addEventListener('click', () => supprimerCategorie(c.id, c.nom));
                 conteneur.appendChild(ligne);
-            });
-
-            document.querySelectorAll('.btn-supprimer-cat').forEach(btn => {
-                btn.addEventListener('click', () => supprimerCategorie(btn.dataset.id, btn.dataset.nom));
             });
         }
 
         async function ajouterCategorie(e) {
             e.preventDefault();
-            const messageCategorie = document.getElementById('messageCategorie');
-            messageCategorie.classList.add('hidden');
-
-            const nom = document.getElementById('nomCategorie').value;
-
+            const nom = document.getElementById('nomCategorie').value.trim();
             try {
-                const res = await fetch(`${API_BASE}/categories`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nom })
-                });
-                const result = await res.json();
-
-                afficherMessage(messageCategorie, result.message, result.success);
+                const result = await appelApi('/categories', { method: 'POST', body: { nom } });
+                messageCourt('messageCategorie', result.message, result.success);
                 if (result.success) {
                     document.getElementById('formCategorie').reset();
                     chargerCategories();
                 }
             } catch (err) {
-                afficherMessage(messageCategorie, "Erreur de connexion au serveur.", false);
+                messageCourt('messageCategorie', "Erreur de connexion au serveur.", false);
             }
         }
 
         async function supprimerCategorie(id, nom) {
             if (!confirm(`Supprimer la catégorie "${nom}" ?`)) return;
-
             try {
-                const res = await fetch(`${API_BASE}/categories/${id}`, { method: 'DELETE' });
-                const result = await res.json();
-
-                if (result.success) {
-                    chargerCategories();
-                } else {
-                    alert(result.message);
-                }
+                const result = await appelApi(`/categories/${id}`, { method: 'DELETE' });
+                messageCourt('messageCategorie', result.message, result.success);
+                if (result.success) chargerCategories();
             } catch (err) {
-                alert("Erreur de connexion au serveur.");
+                messageCourt('messageCategorie', "Erreur de connexion au serveur.", false);
             }
         }
 
         // ---------- Matériel ----------
 
         async function chargerCatalogue() {
-            const res = await fetch(`${API_BASE}/materiels`);
-            const materiels = await res.json();
+            const materiels = await appelApi('/materiels');
             const conteneur = document.getElementById('listeCatalogue');
             conteneur.innerHTML = '';
 
@@ -220,94 +207,109 @@
 
             materiels.forEach(m => {
                 const statut = LABELS_STATUT[m.statut] || { texte: m.statut, classe: 'bg-slate-100 text-slate-600' };
-                const infoQuantite = m.typeGestion === 'DURABLE'
-                    ? `<span class="text-xs text-slate-400">${m.codeUnique ?? ''}</span>`
-                    : `<span class="text-xs text-slate-400">Stock : ${m.quantiteStock}</span>`;
+                const estDurable = m.typeGestion === 'DURABLE';
+                const infoQuantite = estDurable
+                    ? `<span class="text-xs text-slate-400">${echapper(m.codeUnique || '')}</span>`
+                    : `<span class="text-xs ${m.quantiteStock === 0 ? 'text-red-600 font-semibold' : 'text-slate-400'}">Stock : ${m.quantiteStock}</span>`;
+
+                // Durable : changement de statut manuel (EMPRUNTE n'est jamais proposé, il vient du cycle d'emprunt)
+                // Consommable : réapprovisionnement
+                let actions;
+                if (estDurable) {
+                    const options = Object.entries(LABELS_STATUT)
+                        .filter(([cle]) => cle !== 'EMPRUNTE')
+                        .map(([cle, info]) => `<option value="${cle}" ${cle === m.statut ? 'selected' : ''}>${info.texte}</option>`)
+                        .join('');
+                    actions = m.statut === 'EMPRUNTE'
+                        ? '<span class="text-[11px] text-slate-400 italic">Emprunté en ce moment</span>'
+                        : `<select class="choix-statut px-2 py-1.5 border border-slate-300 rounded-lg text-xs">${options}</select>`;
+                } else {
+                    actions = `
+                        <input type="number" min="1" value="10" class="qte-ajout w-16 px-2 py-1.5 border border-slate-300 rounded-lg text-xs text-center">
+                        <button class="btn-stock px-2 py-1.5 text-xs font-medium rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50">+ Stock</button>`;
+                }
 
                 const ligne = document.createElement('div');
-                ligne.className = "flex items-center justify-between p-3 border border-slate-200 rounded-lg text-sm";
+                ligne.className = "flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 border border-slate-200 rounded-lg text-sm";
                 ligne.innerHTML = `
                     <div class="space-y-0.5">
-                        <div class="font-medium text-slate-800">${m.designation}</div>
-                        <div class="flex gap-2 items-center">
-                            <span class="text-xs text-slate-400">${m.categorie ? m.categorie.nom : '—'}</span>
+                        <div class="font-medium text-slate-800">${echapper(m.designation)}</div>
+                        <div class="flex flex-wrap gap-2 items-center">
+                            <span class="text-xs text-slate-400">${echapper(m.categorie ? m.categorie.nom : '—')}</span>
                             ${infoQuantite}
                             <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full ${statut.classe}">${statut.texte}</span>
                         </div>
                     </div>
-                    <button data-id="${m.id}" data-nom="${m.designation}" class="btn-supprimer text-red-500 hover:text-red-700 text-xs font-medium px-3 py-1.5 border border-red-200 rounded-lg hover:bg-red-50">
-                        Supprimer
-                    </button>
+                    <div class="flex items-center gap-2 shrink-0">
+                        ${actions}
+                        <button class="btn-supprimer text-red-500 hover:text-red-700 text-xs font-medium px-3 py-1.5 border border-red-200 rounded-lg hover:bg-red-50">
+                            Supprimer
+                        </button>
+                    </div>
                 `;
-                conteneur.appendChild(ligne);
-            });
 
-            document.querySelectorAll('.btn-supprimer').forEach(btn => {
-                btn.addEventListener('click', () => supprimerMateriel(btn.dataset.id, btn.dataset.nom));
+                ligne.querySelector('.btn-supprimer').addEventListener('click', () => supprimerMateriel(m.id, m.designation));
+                const choixStatut = ligne.querySelector('.choix-statut');
+                if (choixStatut) choixStatut.addEventListener('change', () => changerStatut(m.id, choixStatut.value));
+                const btnStock = ligne.querySelector('.btn-stock');
+                if (btnStock) btnStock.addEventListener('click', () => reapprovisionner(m.id, parseInt(ligne.querySelector('.qte-ajout').value)));
+
+                conteneur.appendChild(ligne);
             });
         }
 
         async function ajouterMateriel(e) {
             e.preventDefault();
-            const messageAjout = document.getElementById('messageAjout');
-            messageAjout.classList.add('hidden');
-
             const typeGestion = document.getElementById('typeGestion').value;
             const categorieId = document.getElementById('categorie').value;
 
             if (!categorieId) {
-                afficherMessage(messageAjout, "Veuillez d'abord créer et sélectionner une catégorie.", false);
+                messageCourt('messageAjout', "Veuillez d'abord créer et sélectionner une catégorie.", false);
                 return;
             }
 
             const payload = {
-                designation: document.getElementById('designation').value,
+                designation: document.getElementById('designation').value.trim(),
                 categorieId: parseInt(categorieId),
                 typeGestion: typeGestion,
-                codeUnique: typeGestion === 'DURABLE' ? document.getElementById('codeUnique').value : null,
+                codeUnique: typeGestion === 'DURABLE' ? document.getElementById('codeUnique').value.trim() : null,
                 quantiteStock: typeGestion === 'CONSOMMABLE' ? parseInt(document.getElementById('quantiteStock').value) : null
             };
 
             try {
-                const res = await fetch(`${API_BASE}/materiels`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await res.json();
-
-                afficherMessage(messageAjout, result.message, result.success);
+                const result = await appelApi('/materiels', { method: 'POST', body: payload });
+                messageCourt('messageAjout', result.message, result.success);
                 if (result.success) {
                     document.getElementById('formAjout').reset();
                     basculerChamps();
                     chargerCatalogue();
                 }
             } catch (err) {
-                afficherMessage(messageAjout, "Erreur de connexion au serveur.", false);
+                messageCourt('messageAjout', "Erreur de connexion au serveur.", false);
             }
         }
 
         async function supprimerMateriel(id, nom) {
             if (!confirm(`Supprimer "${nom}" du catalogue ?`)) return;
-
-            try {
-                const res = await fetch(`${API_BASE}/materiels/${id}`, { method: 'DELETE' });
-                const result = await res.json();
-
-                if (result.success) {
-                    chargerCatalogue();
-                } else {
-                    alert(result.message);
-                }
-            } catch (err) {
-                alert("Erreur de connexion au serveur.");
-            }
+            await actionCatalogue(`/materiels/${id}`, { method: 'DELETE' });
         }
 
-        function afficherMessage(zone, texte, succes) {
-            zone.textContent = texte;
-            zone.className = `text-xs rounded-lg p-2 ${succes ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`;
-            zone.classList.remove('hidden');
+        async function changerStatut(id, statut) {
+            await actionCatalogue(`/materiels/${id}/statut`, { method: 'PATCH', body: { statut } });
+        }
+
+        async function reapprovisionner(id, quantite) {
+            await actionCatalogue(`/materiels/${id}/stock`, { method: 'PATCH', body: { quantite } });
+        }
+
+        async function actionCatalogue(chemin, options) {
+            try {
+                const result = await appelApi(chemin, options);
+                messageCourt('messageCatalogue', result.message, result.success);
+            } catch (err) {
+                messageCourt('messageCatalogue', "Erreur de connexion au serveur.", false);
+            }
+            chargerCatalogue();
         }
     </script>
 </body>

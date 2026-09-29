@@ -196,12 +196,59 @@ public class EmpruntService {
         return emprunt;
     }
 
+    /**
+     * Supprime une demande encore EN_ATTENTE (refus par un agent ou annulation par le délégué)
+     * et libère le matériel qu'elle réservait : les durables repassent DISPONIBLE,
+     * les quantités de consommables sont remises en stock.
+     *
+     * @param delegueId si non nul, vérifie que la demande appartient bien à ce délégué (annulation)
+     */
+    @Transactional
+    public void annulerDemande(Long empruntId, Long delegueId) {
+        if (empruntId == null) {
+            throw new OperationException("L'identifiant de la demande est obligatoire.");
+        }
+
+        Emprunt emprunt = empruntRepository.findById(empruntId)
+                .orElseThrow(() -> new OperationException("Demande introuvable (id=" + empruntId + ")."));
+
+        if (emprunt.getStatutEmprunt() != Emprunt.StatutEmprunt.EN_ATTENTE) {
+            throw new OperationException("Seule une demande en attente peut être annulée ou refusée.");
+        }
+        if (delegueId != null && !emprunt.getDelegue().getId().equals(delegueId)) {
+            throw new OperationException("Cette demande ne vous appartient pas.");
+        }
+
+        List<DetailEmprunt> details = detailEmpruntRepository.findByEmpruntId(empruntId);
+        for (DetailEmprunt detail : details) {
+            Materiel materiel = detail.getMateriel();
+            if (materiel.getTypeGestion() == Materiel.TypeGestion.DURABLE) {
+                if (materiel.getStatut() == Materiel.StatutMateriel.EMPRUNTE) {
+                    materiel.setStatut(Materiel.StatutMateriel.DISPONIBLE);
+                }
+            } else {
+                materiel.setQuantiteStock(materiel.getQuantiteStock() + detail.getQuantite());
+            }
+            materielRepository.save(materiel);
+        }
+
+        detailEmpruntRepository.deleteAll(details);
+        emprunt.getDetails().clear();
+        empruntRepository.delete(emprunt);
+    }
+
     public List<Emprunt> listerDemandesEnAttente() {
         return empruntRepository.findByStatutEmpruntOrderByDateSortieAsc(Emprunt.StatutEmprunt.EN_ATTENTE);
     }
 
+    /** Emprunts validés (matériel remis) et pas encore rendus. */
     public List<Emprunt> listerEmpruntsActifs() {
-        return empruntRepository.findByDateRetourIsNullOrderByDateSortieDesc();
+        return empruntRepository.findByStatutEmpruntAndDateRetourIsNullOrderByDateSortieDesc(
+                Emprunt.StatutEmprunt.EN_COURS);
+    }
+
+    public List<Emprunt> listerEmpruntsDelegue(Long delegueId) {
+        return empruntRepository.findByDelegueIdOrderByDateSortieDesc(delegueId);
     }
 
     public List<Emprunt> listerHistorique() {

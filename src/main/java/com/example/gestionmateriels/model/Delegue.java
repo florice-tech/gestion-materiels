@@ -1,5 +1,6 @@
 package com.example.gestionmateriels.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 
 /**
@@ -23,6 +24,8 @@ public class Delegue {
     @Column(nullable = false, unique = true)
     private String identifiant;
 
+    // Jamais renvoyé dans les réponses JSON
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(nullable = false)
     private String motDePasse;
 

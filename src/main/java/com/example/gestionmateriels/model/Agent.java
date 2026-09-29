@@ -1,5 +1,6 @@
 package com.example.gestionmateriels.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 
 /**
@@ -27,6 +28,8 @@ public class Agent {
     private String identifiant;
 
     // Mot de passe (en clair pour l'instant, à hacher plus tard si besoin de plus de sécurité)
+    // Jamais renvoyé dans les réponses JSON
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(nullable = false)
     private String motDePasse;
 

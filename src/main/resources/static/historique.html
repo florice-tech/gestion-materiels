@@ -5,33 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Historique des Emprunts - Gestion Matériel</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/commun.js"></script>
 </head>
 <body class="bg-slate-100 font-sans p-6">
 
     <div class="max-w-6xl mx-auto space-y-6">
-        <div class="bg-blue-600 p-4 rounded-xl text-white flex justify-between items-center shadow-md">
+        <div class="bg-blue-600 p-4 rounded-xl text-white flex flex-wrap gap-3 justify-between items-center shadow-md">
             <div>
                 <h1 class="text-xl font-bold">Historique des Emprunts</h1>
                 <p class="text-blue-100 text-sm">Journal complet des mouvements de matériel</p>
             </div>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
                 <a href="accueil-agent.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Accueil</a>
-                <a href="materiel.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Catalogue</a>
                 <a href="emprunt.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Demandes</a>
                 <a href="retour.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Retours</a>
+                <a href="materiel.html" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium transition">Catalogue</a>
             </div>
         </div>
 
         <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
             <div class="flex flex-col md:flex-row gap-3 mb-4">
-                <input type="text" id="filtreNom" placeholder="Rechercher un délégué..."
+                <input type="text" id="filtreNom" placeholder="Rechercher un délégué, une salle, un matériel..."
                        class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <select id="filtreStatut" class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <option value="">Tous les statuts</option>
+                    <option value="En attente">En attente</option>
+                    <option value="En cours">En cours</option>
+                    <option value="En retard">En retard</option>
+                    <option value="Rendu">Rendu</option>
+                </select>
             </div>
 
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left">
                     <thead>
                         <tr class="border-b border-slate-200 text-slate-500 text-xs uppercase">
+                            <th class="py-2 pr-4">Statut</th>
                             <th class="py-2 pr-4">Délégué</th>
                             <th class="py-2 pr-4">Salle</th>
                             <th class="py-2 pr-4">Sortie</th>
@@ -43,39 +52,45 @@
                         </tr>
                     </thead>
                     <tbody id="corpsTableau">
-                        <tr><td colspan="8" class="py-4 text-center text-slate-500 italic">Chargement...</td></tr>
+                        <tr><td colspan="9" class="py-4 text-center text-slate-500 italic">Chargement...</td></tr>
                     </tbody>
                 </table>
             </div>
+            <p class="text-xs text-slate-400 mt-3">🟢 Bon état · 🟡 À vérifier · 🔴 Endommagé · ⚫ Vide / épuisé</p>
         </div>
     </div>
 
     <script>
-        const API_BASE = 'http://localhost:8080/api';
+        exigerSession('AGENT');
         let toutHistorique = [];
-
-        const LABELS_ETAT = {
-            BON_ETAT: { texte: '🟢', classe: 'bg-green-100 text-green-700' },
-            A_VERIFIER: { texte: '🟡', classe: 'bg-amber-100 text-amber-700' },
-            ENDOMMAGE: { texte: '🔴', classe: 'bg-red-100 text-red-700' },
-            VIDE_EPUISE: { texte: '⚫', classe: 'bg-slate-200 text-slate-600' }
-        };
 
         document.addEventListener('DOMContentLoaded', () => {
             chargerHistorique();
             document.getElementById('filtreNom').addEventListener('input', appliquerFiltres);
+            document.getElementById('filtreStatut').addEventListener('change', appliquerFiltres);
         });
 
         async function chargerHistorique() {
-            const res = await fetch(`${API_BASE}/emprunts/historique`);
-            const result = await res.json();
-            toutHistorique = result.success ? result.data : [];
-            afficherLignes(toutHistorique);
+            try {
+                const result = await appelApi('/emprunts/historique');
+                toutHistorique = result.success ? result.data : [];
+            } catch (e) {
+                toutHistorique = [];
+            }
+            appliquerFiltres();
         }
 
         function appliquerFiltres() {
-            const nom = document.getElementById('filtreNom').value.toLowerCase();
-            afficherLignes(toutHistorique.filter(e => e.delegue.nom.toLowerCase().includes(nom)));
+            const texte = document.getElementById('filtreNom').value.toLowerCase().trim();
+            const statut = document.getElementById('filtreStatut').value;
+
+            afficherLignes(toutHistorique.filter(e => {
+                const contenu = [
+                    e.delegue.nom, e.delegue.filiereNiveau, e.salle,
+                    ...(e.details || []).map(d => d.materiel.designation)
+                ].join(' ').toLowerCase();
+                return (!texte || contenu.includes(texte)) && (!statut || statutFiche(e).texte === statut);
+            }));
         }
 
         function afficherLignes(liste) {
@@ -83,35 +98,24 @@
             corps.innerHTML = '';
 
             if (liste.length === 0) {
-                corps.innerHTML = '<tr><td colspan="8" class="py-4 text-center text-slate-500 italic">Aucun résultat.</td></tr>';
+                corps.innerHTML = '<tr><td colspan="9" class="py-4 text-center text-slate-500 italic">Aucun résultat.</td></tr>';
                 return;
             }
 
             liste.forEach(e => {
-                const dateSortie = new Date(e.dateSortie).toLocaleString('fr-FR');
-                const dateRetour = e.dateRetour ? new Date(e.dateRetour).toLocaleString('fr-FR') : '—';
-                const agentRetour = e.agentRetour ? e.agentRetour.nom : '—';
-                const agentSortie = e.agentSortie ? e.agentSortie.nom : '—';
-
-                const materielHtml = e.details.map(d => {
-                    if (!d.etatRetour) {
-                        return `<div>${d.materiel.designation} <span class="text-slate-400">(en cours)</span></div>`;
-                    }
-                    const info = LABELS_ETAT[d.etatRetour] || { texte: '', classe: '' };
-                    return `<div>${info.texte} ${d.materiel.designation}</div>`;
-                }).join('');
-
+                const statut = statutFiche(e);
                 const ligne = document.createElement('tr');
                 ligne.className = "border-b border-slate-100 hover:bg-slate-50 align-top";
                 ligne.innerHTML = `
-                    <td class="py-2 pr-4 font-medium text-slate-800">${e.delegue.nom}<div class="text-xs text-slate-400">${e.delegue.filiereNiveau}</div></td>
-                    <td class="py-2 pr-4 text-slate-600">${e.salle}</td>
-                    <td class="py-2 pr-4 text-slate-500 text-xs">${dateSortie}</td>
-                    <td class="py-2 pr-4 text-slate-600">${agentSortie}</td>
-                    <td class="py-2 pr-4 text-slate-500 text-xs">${dateRetour}</td>
-                    <td class="py-2 pr-4 text-slate-600">${agentRetour}</td>
-                    <td class="py-2 pr-4 text-xs">${materielHtml}</td>
-                    <td class="py-2 text-slate-500 text-xs">${e.observations || '—'}</td>
+                    <td class="py-2 pr-4"><span class="text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${statut.classe}">${statut.texte}</span></td>
+                    <td class="py-2 pr-4 font-medium text-slate-800">${echapper(e.delegue.nom)}<div class="text-xs text-slate-400">${echapper(e.delegue.filiereNiveau)}</div></td>
+                    <td class="py-2 pr-4 text-slate-600">${echapper(e.salle)}</td>
+                    <td class="py-2 pr-4 text-slate-500 text-xs">${formaterDate(e.dateSortie)}</td>
+                    <td class="py-2 pr-4 text-slate-600">${echapper(e.agentSortie ? e.agentSortie.nom : '—')}</td>
+                    <td class="py-2 pr-4 text-slate-500 text-xs">${formaterDate(e.dateRetour)}</td>
+                    <td class="py-2 pr-4 text-slate-600">${echapper(e.agentRetour ? e.agentRetour.nom : '—')}</td>
+                    <td class="py-2 pr-4 text-xs">${listeArticlesHtml(e)}</td>
+                    <td class="py-2 text-slate-500 text-xs">${echapper(e.observations || '—')}</td>
                 `;
                 corps.appendChild(ligne);
             });
