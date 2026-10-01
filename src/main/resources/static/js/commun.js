@@ -95,7 +95,7 @@ function construireEntete(moi, pageActive) {
 
     const liens = NAVIGATION[moi.type]
         .filter(l => !l.admin || moi.administrateur)
-        .map(l => `<a href="${l.lien}" class="px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+        .map(l => `<a href="${l.lien}" ${l.cle === pageActive ? 'aria-current="page"' : ''} class="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition ${
             l.cle === pageActive ? 'bg-white text-blue-700 shadow-sm' : 'text-blue-50 hover:bg-blue-500'}">${l.texte}</a>`)
         .join('');
 
@@ -105,19 +105,21 @@ function construireEntete(moi, pageActive) {
 
     conteneur.innerHTML = `
         <header class="bg-blue-600 text-white shadow-md">
-            <div class="max-w-6xl mx-auto px-4 md:px-6 py-3 flex flex-wrap items-center gap-3 justify-between">
-                <a href="${NAVIGATION[moi.type][0].lien}" class="flex items-center gap-2 font-bold text-lg">
-                    <span class="bg-white text-blue-600 rounded-lg w-8 h-8 grid place-items-center text-base">GM</span>
-                    Gestion Matériel
-                </a>
-                <nav class="flex flex-wrap gap-1 order-3 md:order-2 w-full md:w-auto">${liens}</nav>
-                <div class="flex items-center gap-3 order-2 md:order-3">
-                    <a href="mon-compte.html" class="text-right leading-tight hover:underline" title="Mon compte">
-                        <div class="text-sm font-semibold">${echapper(moi.nom)}</div>
-                        <div class="text-xs text-blue-100">${echapper(sousTitre)}</div>
+            <div class="max-w-7xl mx-auto px-4 md:px-6">
+                <div class="flex items-center justify-between gap-3 py-3">
+                    <a href="${NAVIGATION[moi.type][0].lien}" class="flex items-center gap-2 font-bold text-lg shrink-0">
+                        <span class="bg-white text-blue-600 rounded-lg w-8 h-8 grid place-items-center text-sm">GM</span>
+                        <span class="hidden sm:inline">Gestion Matériel</span>
                     </a>
-                    <button id="btnDeconnexion" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium">Déconnexion</button>
+                    <div class="flex items-center gap-3 min-w-0">
+                        <a href="mon-compte.html" class="text-right leading-tight hover:underline min-w-0" title="Mon compte">
+                            <div class="text-sm font-semibold truncate">${echapper(moi.nom)}</div>
+                            <div class="text-xs text-blue-100 truncate">${echapper(sousTitre)}</div>
+                        </a>
+                        <button id="btnDeconnexion" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium shrink-0">Déconnexion</button>
+                    </div>
                 </div>
+                <nav class="flex gap-1 overflow-x-auto pb-2 -mx-1 px-1" aria-label="Navigation principale">${liens}</nav>
             </div>
         </header>`;
     document.getElementById('btnDeconnexion').addEventListener('click', seDeconnecter);
@@ -158,6 +160,13 @@ function formaterDate(iso) {
 
 function formaterJour(iso) {
     return iso ? new Date(iso).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) : '—';
+}
+
+/** "lun. 28" : libellé court pour les axes de graphique. */
+function formaterJourCourt(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso + 'T00:00:00');
+    return `${d.toLocaleDateString('fr-FR', { weekday: 'short' })} ${d.getDate()}`;
 }
 
 function formaterHeure(heure) {

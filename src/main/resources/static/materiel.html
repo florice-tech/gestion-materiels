@@ -10,7 +10,7 @@
 <body class="bg-slate-100 font-sans min-h-screen">
     <div id="entete"></div>
 
-    <main class="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+    <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         <div>
             <h1 class="text-2xl font-bold text-slate-800">Catalogue de matériel</h1>
             <p class="text-sm text-slate-500">Ajoutez, modifiez, changez le statut ou réapprovisionnez le matériel.</p>
@@ -33,9 +33,10 @@
                     </div>
                     <div>
                         <label for="typeGestion" class="block text-xs font-medium text-slate-600 mb-1">Type de gestion</label>
+                        <p class="text-xs text-slate-400 mb-1">Durable : suivi à l'unité avec un code. Consommable : suivi du stock, non rendu.</p>
                         <select id="typeGestion" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                            <option value="DURABLE">Durable (suivi à l'unité, rendu après usage)</option>
-                            <option value="CONSOMMABLE">Consommable (suivi par quantité, non rendu)</option>
+                            <option value="DURABLE">Durable (rendu après usage)</option>
+                            <option value="CONSOMMABLE">Consommable (par quantité)</option>
                         </select>
                     </div>
                     <div id="champDurable">
