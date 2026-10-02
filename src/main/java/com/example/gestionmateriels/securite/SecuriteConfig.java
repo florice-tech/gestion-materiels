@@ -69,10 +69,17 @@ public class SecuriteConfig {
                 // Gestion des comptes : administrateurs uniquement
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 // Actions réservées aux délégués
-                .requestMatchers(HttpMethod.POST, "/api/emprunts/demande", "/api/emprunts/*/annuler").hasRole("DELEGUE")
+                .requestMatchers(HttpMethod.POST, "/api/emprunts/demande", "/api/emprunts/reservation",
+                        "/api/emprunts/*/annuler", "/api/scan/**").hasRole("DELEGUE")
                 .requestMatchers(HttpMethod.GET, "/api/emprunts/mes-emprunts").hasRole("DELEGUE")
-                // Lecture du catalogue et des listes : tout utilisateur connecté
-                .requestMatchers(HttpMethod.GET, "/api/materiels", "/api/salles", "/api/categories").authenticated()
+                .requestMatchers("/api/transferts/**").hasRole("DELEGUE")
+                // Listes d'emprunts réservées aux agents (avant la règle générale /api/emprunts/* ci-dessous)
+                .requestMatchers(HttpMethod.GET, "/api/emprunts/en-attente", "/api/emprunts/en-cours",
+                        "/api/emprunts/historique", "/api/emprunts/export", "/api/emprunts/reservations").hasRole("AGENT")
+                // Lecture pour tout utilisateur connecté (une fiche : le contrôleur vérifie qu'elle appartient au délégué)
+                .requestMatchers(HttpMethod.GET, "/api/materiels", "/api/salles", "/api/categories",
+                        "/api/disponibilites", "/api/config", "/api/scan/*", "/api/emprunts/*").authenticated()
+                .requestMatchers("/api/notifications/**").authenticated()
                 // Mon compte, déconnexion : tout utilisateur connecté
                 .requestMatchers("/api/auth/**").authenticated()
                 // Tout le reste de l'API : agents

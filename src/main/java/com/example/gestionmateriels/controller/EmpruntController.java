@@ -2,6 +2,7 @@ package com.example.gestionmateriels.controller;
 
 import com.example.gestionmateriels.dto.DemandeEmpruntRequest;
 import com.example.gestionmateriels.dto.RefusRequest;
+import com.example.gestionmateriels.dto.ReservationRequest;
 import com.example.gestionmateriels.dto.RetourRequest;
 import com.example.gestionmateriels.model.Emprunt;
 import com.example.gestionmateriels.securite.UtilisateurConnecte;
@@ -44,6 +45,14 @@ public class EmpruntController {
                 "empruntId", emprunt.getId());
     }
 
+    @PostMapping("/reservation")
+    public ResponseEntity<Map<String, Object>> reserver(@AuthenticationPrincipal UtilisateurConnecte moi,
+                                                        @RequestBody ReservationRequest r) {
+        Emprunt emprunt = empruntService.reserver(moi.getId(), r.salle(), r.jour(), r.heureDebut(), r.heureFin(), r.articles());
+        return Reponses.ok("Réservation enregistrée. Le jour venu, scannez le matériel ou passez au poste pour le retirer.",
+                "empruntId", emprunt.getId());
+    }
+
     @PostMapping("/{id}/annuler")
     public ResponseEntity<Map<String, Object>> annuler(@AuthenticationPrincipal UtilisateurConnecte moi,
                                                        @PathVariable Long id) {
@@ -61,6 +70,17 @@ public class EmpruntController {
     @GetMapping("/en-attente")
     public ResponseEntity<Map<String, Object>> enAttente() {
         return Reponses.donnees(empruntService.listerDemandesEnAttente());
+    }
+
+    @GetMapping("/reservations")
+    public ResponseEntity<Map<String, Object>> reservations() {
+        return Reponses.donnees(empruntService.listerReservationsAVenir());
+    }
+
+    // Une fiche (bon d'emprunt) : tous les agents, ou le délégué concerné
+    @GetMapping("/{id}")
+    public Emprunt consulter(@AuthenticationPrincipal UtilisateurConnecte moi, @PathVariable Long id) {
+        return empruntService.consulter(id, moi.estDelegue() ? moi.getId() : null);
     }
 
     @GetMapping("/en-cours")

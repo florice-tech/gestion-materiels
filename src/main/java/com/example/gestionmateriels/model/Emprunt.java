@@ -1,8 +1,10 @@
 package com.example.gestionmateriels.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -10,8 +12,10 @@ import java.util.List;
 
 /**
  * Fiche d'emprunt. Cycle de vie :
- * EN_ATTENTE (demande du délégué) -> EN_COURS (matériel remis par un agent) -> RETOURNE,
+ * EN_ATTENTE (demande du délégué) -> EN_COURS (matériel remis) -> RETOURNE,
  * ou EN_ATTENTE -> REFUSEE (par un agent) / ANNULEE (par le délégué).
+ * Une réservation à l'avance commence en RESERVEE et passe EN_COURS le jour où le matériel est retiré.
+ * Un scan de QR code crée directement une fiche EN_COURS.
  * Les fiches ne sont jamais supprimées : elles restent dans l'historique.
  */
 @Entity
@@ -19,7 +23,16 @@ import java.util.List;
 public class Emprunt {
 
     public enum StatutEmprunt {
-        EN_ATTENTE, EN_COURS, RETOURNE, REFUSEE, ANNULEE
+        RESERVEE, EN_ATTENTE, EN_COURS, RETOURNE, REFUSEE, ANNULEE
+    }
+
+    /**
+     * Comment le matériel est sorti ou revenu :
+     * DEMANDE (demande en ligne remise par un agent), SCAN (QR code scanné par le délégué),
+     * TRANSFERT (passé d'un délégué à un autre), RESERVATION (réservé à l'avance), AGENT (retour au poste).
+     */
+    public enum Mode {
+        DEMANDE, SCAN, TRANSFERT, RESERVATION, AGENT
     }
 
     public enum EtatRetour {
@@ -75,6 +88,26 @@ public class Emprunt {
 
     private LocalDateTime dateTraitement;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Mode mode = Mode.DEMANDE;
+
+    // Réservation à l'avance : jour et heure de début (l'heure de fin est heureRetourPrevue)
+    private LocalDate dateReservation;
+
+    private LocalTime heureDebut;
+
+    // Le délégué et les agents ont déjà reçu la notification de retard
+    @JsonIgnore
+    @Column(nullable = false)
+    private boolean rappelRetardEnvoye = false;
+
+    // Pour un transfert : la fiche du délégué qui avait le matériel avant
+    @JsonIgnore
+    @ManyToOne
+    @JoinColumn(name = "emprunt_origine_id")
+    private Emprunt empruntOrigine;
+
     // Matériels de la fiche, chacun avec son propre état de retour
     @OneToMany(mappedBy = "emprunt", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @OrderBy("id")
@@ -96,13 +129,22 @@ public class Emprunt {
         this.heureRetourPrevue = heureRetourPrevue;
     }
 
-    /** Date et heure limites de retour (le jour de la sortie, à l'heure prévue), ou null. */
+    /** Date et heure limites de retour (le jour de la sortie ou de la réservation, à l'heure prévue), ou null. */
     @JsonProperty("echeance")
     public LocalDateTime getEcheance() {
-        if (dateSortie == null || heureRetourPrevue == null) {
+        if (heureRetourPrevue == null) {
             return null;
         }
-        return dateSortie.toLocalDate().atTime(heureRetourPrevue);
+        if (dateSortie != null) {
+            return dateSortie.toLocalDate().atTime(heureRetourPrevue);
+        }
+        return dateReservation != null ? dateReservation.atTime(heureRetourPrevue) : null;
+    }
+
+    /** Nom du délégué qui a transmis le matériel (transfert), sinon null. */
+    @JsonProperty("transmisPar")
+    public String getTransmisPar() {
+        return empruntOrigine != null ? empruntOrigine.getDelegue().getNom() : null;
     }
 
     /** Vrai si le matériel est sorti et que l'échéance de retour est dépassée. */
@@ -155,6 +197,21 @@ public class Emprunt {
 
     public LocalDateTime getDateTraitement() { return dateTraitement; }
     public void setDateTraitement(LocalDateTime dateTraitement) { this.dateTraitement = dateTraitement; }
+
+    public Mode getMode() { return mode; }
+    public void setMode(Mode mode) { this.mode = mode; }
+
+    public LocalDate getDateReservation() { return dateReservation; }
+    public void setDateReservation(LocalDate dateReservation) { this.dateReservation = dateReservation; }
+
+    public LocalTime getHeureDebut() { return heureDebut; }
+    public void setHeureDebut(LocalTime heureDebut) { this.heureDebut = heureDebut; }
+
+    public boolean isRappelRetardEnvoye() { return rappelRetardEnvoye; }
+    public void setRappelRetardEnvoye(boolean rappelRetardEnvoye) { this.rappelRetardEnvoye = rappelRetardEnvoye; }
+
+    public Emprunt getEmpruntOrigine() { return empruntOrigine; }
+    public void setEmpruntOrigine(Emprunt empruntOrigine) { this.empruntOrigine = empruntOrigine; }
 
     public List<DetailEmprunt> getDetails() { return details; }
     public void setDetails(List<DetailEmprunt> details) { this.details = details; }

@@ -18,6 +18,31 @@ public interface DetailEmpruntRepository extends JpaRepository<DetailEmprunt, Lo
 
     boolean existsByMaterielId(Long materielId);
 
+    /** Ligne d'emprunt en cours pour ce matériel durable (qui l'a entre les mains), s'il y en a une. */
+    @Query("""
+            select d from DetailEmprunt d
+            where d.materiel.id = :materielId and d.dateRetour is null
+              and d.emprunt.statutEmprunt = com.example.gestionmateriels.model.Emprunt.StatutEmprunt.EN_COURS
+            """)
+    List<DetailEmprunt> lignesEnMain(@Param("materielId") Long materielId);
+
+    /** Toutes les lignes d'un matériel, pour retracer son parcours. */
+    @Query("""
+            select d from DetailEmprunt d
+            where d.materiel.id = :materielId
+            order by coalesce(d.emprunt.dateSortie, d.emprunt.dateDemande) desc, d.id desc
+            """)
+    List<DetailEmprunt> parcoursMateriel(@Param("materielId") Long materielId);
+
+    /** Lignes de durables réservées par d'autres fiches (attente ou réservation) pour ce matériel. */
+    @Query("""
+            select d from DetailEmprunt d
+            where d.materiel.id = :materielId
+              and d.emprunt.statutEmprunt in :statuts
+            """)
+    List<DetailEmprunt> lignesParStatut(@Param("materielId") Long materielId,
+                                       @Param("statuts") Collection<Emprunt.StatutEmprunt> statuts);
+
     /**
      * Matériels les plus demandés, parmi les emprunts réellement sortis.
      * Chaque ligne : [désignation, nombre d'emprunts, quantité totale].

@@ -1,7 +1,10 @@
 package com.example.gestionmateriels.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "details_emprunt")
@@ -27,6 +30,16 @@ public class DetailEmprunt {
     @Enumerated(EnumType.STRING)
     private Emprunt.EtatRetour etatRetour;
 
+    // Retour article par article : un délégué peut rendre un matériel en le scannant,
+    // ou le passer à un autre délégué (transfert), sans attendre que toute la fiche soit rendue.
+    private LocalDateTime dateRetour;
+
+    @Enumerated(EnumType.STRING)
+    private Emprunt.Mode modeRetour;
+
+    @Column(columnDefinition = "TEXT")
+    private String remarqueRetour;
+
     public DetailEmprunt() {
     }
 
@@ -50,4 +63,26 @@ public class DetailEmprunt {
 
     public Emprunt.EtatRetour getEtatRetour() { return etatRetour; }
     public void setEtatRetour(Emprunt.EtatRetour etatRetour) { this.etatRetour = etatRetour; }
+
+    public LocalDateTime getDateRetour() { return dateRetour; }
+    public void setDateRetour(LocalDateTime dateRetour) { this.dateRetour = dateRetour; }
+
+    public Emprunt.Mode getModeRetour() { return modeRetour; }
+    public void setModeRetour(Emprunt.Mode modeRetour) { this.modeRetour = modeRetour; }
+
+    public String getRemarqueRetour() { return remarqueRetour; }
+    public void setRemarqueRetour(String remarqueRetour) { this.remarqueRetour = remarqueRetour; }
+
+    /** Vrai si ce matériel durable a déjà été rendu (ou transféré). */
+    @JsonProperty("rendu")
+    public boolean isRendu() {
+        return dateRetour != null;
+    }
+
+    /** Vrai pour un matériel durable encore entre les mains du délégué. */
+    public boolean estDurableEnMain() {
+        return materiel.getTypeGestion() == Materiel.TypeGestion.DURABLE
+                && dateRetour == null
+                && emprunt.getStatutEmprunt() == Emprunt.StatutEmprunt.EN_COURS;
+    }
 }
