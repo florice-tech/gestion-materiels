@@ -1,6 +1,8 @@
 package com.example.gestionmateriels.controller;
 
+import com.example.gestionmateriels.securite.UtilisateurConnecte;
 import com.example.gestionmateriels.service.StatistiqueService;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,7 +19,7 @@ public class StatistiqueController {
     }
 
     @GetMapping
-    public StatistiqueService.TableauDeBord tableauDeBord() {
-        return statistiqueService.tableauDeBord();
+    public StatistiqueService.TableauDeBord tableauDeBord(@AuthenticationPrincipal UtilisateurConnecte moi) {
+        return statistiqueService.tableauDeBord(moi != null && moi.isAdministrateur());
     }
 }

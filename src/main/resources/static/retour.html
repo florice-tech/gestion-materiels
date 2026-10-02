@@ -45,7 +45,7 @@
                         </div>
                         <div id="lignesArticles" class="space-y-2"></div>
                         <p class="text-xs text-slate-400 mt-2">
-                            Bon état → disponible · À vérifier → à contrôler · Endommagé → maintenance · Vide/épuisé → hors service.
+                            Selon l'état choisi, le matériel redevient disponible (bon état), attend un contrôle (à vérifier), part en maintenance (endommagé) ou passe hors service (vide ou épuisé).
                             Les consommables ne reviennent pas en stock.
                         </p>
                     </div>
@@ -115,7 +115,7 @@
                         <span class="font-semibold text-slate-800">${echapper(e.delegue.nom)}</span>
                         ${e.enRetard ? badge(STATUTS_FICHE.RETARD) : ''}
                     </div>
-                    <div class="text-xs text-slate-500">${echapper(e.delegue.filiereNiveau)} — salle <span class="font-bold text-blue-600">${echapper(e.salle)}</span></div>
+                    <div class="text-xs text-slate-500">${echapper(e.delegue.filiereNiveau)} · salle <span class="font-bold text-blue-600">${echapper(e.salle)}</span></div>
                     <div class="text-[11px] text-slate-400">Sorti le ${formaterDate(e.dateSortie)} · ${e.agentSortie ? 'remis par ' + echapper(e.agentSortie.nom) : (e.mode === 'TRANSFERT' ? 'transmis par ' + echapper(e.transmisPar || '') : 'retiré par scan')}</div>
                     ${heure ? `<div class="text-[11px] ${e.enRetard ? 'text-red-600 font-semibold' : 'text-slate-400'}">Retour prévu : ${heure}</div>` : ''}`;
                 carte.addEventListener('click', () => selectionnerFiche(e));
@@ -136,7 +136,7 @@
                 `${e.delegue.filiereNiveau} · salle ${e.salle} · sorti le ${formaterDate(e.dateSortie)}`;
             const retard = document.getElementById('recapRetard');
             retard.classList.toggle('hidden', !e.enRetard);
-            retard.textContent = e.enRetard ? `⚠ En retard : retour attendu le ${formaterDate(e.echeance)}.` : '';
+            retard.textContent = e.enRetard ? `En retard : retour attendu le ${formaterDate(e.echeance)}.` : '';
 
             const lignes = document.getElementById('lignesArticles');
             lignes.innerHTML = e.details.map(d => d.materiel.typeGestion === 'DURABLE' && d.rendu ? `

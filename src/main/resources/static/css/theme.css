@@ -138,3 +138,18 @@ a.text-blue-600:not([class*="bg-"]), a.text-blue-700:not([class*="bg-"]) {
     text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
 }
 a.text-blue-600:not([class*="bg-"]):hover, a.text-blue-700:not([class*="bg-"]):hover { text-decoration-color: currentColor; }
+
+/* Miniature de QR code (catalogue) : cliquable pour l'agrandir */
+.qr-mini { width: 3.25rem; height: 3.25rem; padding: .2rem; border-radius: .5rem; background: #fff; border: 1px solid var(--ligne); display: grid; place-items: center; overflow: hidden; cursor: zoom-in; transition: border-color .15s; }
+.qr-mini:hover, .qr-mini:focus-visible { border-color: var(--lbs-marine); }
+.qr-mini img, .qr-mini canvas { width: 100% !important; height: auto !important; image-rendering: pixelated; }
+
+/* Tableau de bord */
+.bande-admin { background: linear-gradient(135deg, var(--lbs-marine-profond), var(--lbs-marine)); }
+.lien-admin { color: #fff; text-decoration: none; padding: .35rem .75rem; border-radius: .5rem; border: 1px solid rgba(255,255,255,.25); }
+.lien-admin:hover { background: rgba(255,255,255,.1); }
+.point-direct { width: .5rem; height: .5rem; border-radius: 999px; background: #1f7a4d; box-shadow: 0 0 0 0 rgba(31,122,77,.5); animation: pouls 2.4s ease-out infinite; }
+@keyframes pouls { 0% { box-shadow: 0 0 0 0 rgba(31,122,77,.45); } 70%, 100% { box-shadow: 0 0 0 .4rem rgba(31,122,77,0); } }
+@media (prefers-reduced-motion: reduce) { .point-direct { animation: none; } }
+.carte-scan { background: var(--lbs-marine); transition: background .15s; } .carte-scan:hover { background: var(--lbs-marine-profond); }
+html.dark .bg-blue-700 { background-color: #8fb0e6 !important; } html.dark .bg-blue-400 { background-color: #4f74a8 !important; }

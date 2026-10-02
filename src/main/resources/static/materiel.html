@@ -12,16 +12,24 @@
 <body class="bg-slate-100 font-sans min-h-screen">
     <div id="entete"></div>
 
-    <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-        <div>
-            <h1 class="text-2xl md:text-3xl text-slate-800">Catalogue de matériel</h1>
-            <p class="text-sm text-slate-500">Ajoutez, modifiez, changez le statut ou réapprovisionnez le matériel.</p>
+    <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+            <div>
+                <h1 class="text-2xl md:text-3xl text-slate-800">Catalogue de matériel</h1>
+                <p class="text-sm text-slate-500 mt-1">Chaque matériel a son QR code : cliquez dessus pour l'agrandir, le télécharger ou l'imprimer.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="etiquettes.html" class="inline-flex items-center gap-2 border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-2 rounded-lg" style="text-decoration:none" id="lienEtiquettes"></a>
+                <button id="btnAjouter" class="lg:hidden inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg" aria-controls="panneauAjout" aria-expanded="false"></button>
+            </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <section id="resumeCatalogue" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"></section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
             <!-- Ajout -->
-            <section class="lg:col-span-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4 h-fit">
-                <h2 class="font-semibold text-slate-800">Ajouter un matériel</h2>
+            <section id="panneauAjout" class="hidden lg:block lg:col-span-1 bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4 lg:sticky lg:top-20">
+                <h2 class="font-semibold text-slate-800 text-lg">Ajouter un matériel</h2>
                 <form id="formAjout" class="space-y-3">
                     <div>
                         <label for="designation" class="block text-xs font-medium text-slate-600 mb-1">Désignation</label>
@@ -31,20 +39,26 @@
                     <div>
                         <label for="categorie" class="block text-xs font-medium text-slate-600 mb-1">Catégorie</label>
                         <select id="categorie" required class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"></select>
-                        <p class="text-xs text-slate-400 mt-1">Gérer les catégories : <a href="parametres.html" class="text-blue-600 hover:underline">Salles & catégories</a></p>
+                        <p class="text-xs text-slate-400 mt-1">Gérer les catégories : <a href="parametres.html" class="text-blue-600">Salles et catégories</a></p>
                     </div>
+                    <fieldset>
+                        <legend class="block text-xs font-medium text-slate-600 mb-1">Type</legend>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="choix-type flex flex-col gap-0.5 p-3 border border-slate-300 rounded-lg cursor-pointer text-sm">
+                                <span class="flex items-center gap-2 font-medium text-slate-800"><input type="radio" name="typeGestion" value="DURABLE" checked> Durable</span>
+                                <span class="text-xs text-slate-500">Prêté puis rendu</span>
+                            </label>
+                            <label class="choix-type flex flex-col gap-0.5 p-3 border border-slate-300 rounded-lg cursor-pointer text-sm">
+                                <span class="flex items-center gap-2 font-medium text-slate-800"><input type="radio" name="typeGestion" value="CONSOMMABLE"> Fourniture</span>
+                                <span class="text-xs text-slate-500">Suivie en stock</span>
+                            </label>
+                        </div>
+                    </fieldset>
                     <div>
-                        <label for="typeGestion" class="block text-xs font-medium text-slate-600 mb-1">Type de gestion</label>
-                        <p class="text-xs text-slate-400 mb-1">Durable : suivi à l'unité avec un code. Consommable : suivi du stock, non rendu.</p>
-                        <select id="typeGestion" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                            <option value="DURABLE">Durable (rendu après usage)</option>
-                            <option value="CONSOMMABLE">Consommable (par quantité)</option>
-                        </select>
-                    </div>
-                    <div id="champDurable">
-                        <label for="codeUnique" class="block text-xs font-medium text-slate-600 mb-1">Code unique (étiquette)</label>
-                        <input type="text" id="codeUnique" placeholder="ex : VP-02" maxlength="50"
-                               class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <label for="codeUnique" class="block text-xs font-medium text-slate-600 mb-1">Code de l'étiquette <span class="font-normal text-slate-400">(facultatif)</span></label>
+                        <input type="text" id="codeUnique" placeholder="Généré automatiquement" maxlength="50" pattern="[A-Za-z0-9][A-Za-z0-9._\-]*"
+                               class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm uppercase focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <p id="apercuCode" class="text-xs text-slate-400 mt-1">Laissez vide : un code comme VID-01 est créé à partir du nom.</p>
                     </div>
                     <div id="champConsommable" class="hidden grid grid-cols-2 gap-3">
                         <div>
@@ -53,35 +67,36 @@
                                    class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                         </div>
                         <div>
-                            <label for="seuilAlerte" class="block text-xs font-medium text-slate-600 mb-1">Seuil d'alerte</label>
+                            <label for="seuilAlerte" class="block text-xs font-medium text-slate-600 mb-1">Alerte à partir de</label>
                             <input type="number" id="seuilAlerte" min="0" value="5"
                                    class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                         </div>
                     </div>
                     <div id="messageAjout" class="hidden"></div>
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm">Ajouter au catalogue</button>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm">Ajouter et créer son QR code</button>
                 </form>
             </section>
 
             <!-- Liste -->
-            <section class="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                <div class="flex flex-wrap gap-2">
-                    <input id="filtreTexte" type="search" placeholder="Rechercher (nom, code)..."
-                           class="flex-1 min-w-[160px] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                    <select id="filtreCategorie" class="px-3 py-2 border border-slate-300 rounded-lg text-sm"></select>
-                    <select id="filtreStatut" class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
+            <section class="lg:col-span-2 bg-white p-4 md:p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
+                    <input id="filtreTexte" type="search" placeholder="Rechercher un nom ou un code"
+                           class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <select id="filtreCategorie" class="px-3 py-2 border border-slate-300 rounded-lg text-sm" aria-label="Catégorie"></select>
+                    <select id="filtreStatut" class="px-3 py-2 border border-slate-300 rounded-lg text-sm" aria-label="Statut">
                         <option value="">Tous les statuts</option>
                         <option value="DISPONIBLE">Disponible</option>
                         <option value="EMPRUNTE">Emprunté</option>
                         <option value="A_VERIFIER">À vérifier</option>
                         <option value="MAINTENANCE">Maintenance</option>
                         <option value="HS">Hors service</option>
+                        <option value="FOURNITURE">Fournitures</option>
                         <option value="STOCK_BAS">Stock bas</option>
                     </select>
                 </div>
                 <div id="messageCatalogue" class="hidden"></div>
                 <p id="compteCatalogue" class="text-xs text-slate-500"></p>
-                <div id="listeCatalogue" class="space-y-2"></div>
+                <div id="listeCatalogue" class="divide-y divide-slate-100"></div>
             </section>
         </div>
     </main>
@@ -90,22 +105,43 @@
         let categories = [];
         let materiels = [];
 
+        const typeChoisi = () => document.querySelector('input[name=typeGestion]:checked').value;
+
         document.addEventListener('DOMContentLoaded', async () => {
             await initPage({ type: 'AGENT', page: 'catalogue' });
+            document.getElementById('lienEtiquettes').innerHTML = `${icone('etiquettes', 'w-4 h-4')} Imprimer les étiquettes`;
+            document.getElementById('btnAjouter').innerHTML = `${icone('demande', 'w-4 h-4')} Ajouter un matériel`;
+            document.getElementById('btnAjouter').addEventListener('click', basculerPanneau);
             document.getElementById('formAjout').addEventListener('submit', ajouterMateriel);
-            document.getElementById('typeGestion').addEventListener('change', basculerChamps);
+            document.querySelectorAll('input[name=typeGestion]').forEach(r => r.addEventListener('change', basculerChamps));
+            document.getElementById('codeUnique').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/\s+/g, '-'); });
             ['filtreTexte', 'filtreCategorie', 'filtreStatut'].forEach(id =>
                 document.getElementById(id).addEventListener('input', afficherCatalogue));
             basculerChamps();
             await chargerCategories();
-            chargerCatalogue();
+            await chargerCatalogue();
+            // Arrivée depuis une autre page : ?qr=CODE ouvre directement le QR code
+            const qr = new URLSearchParams(location.search).get('qr');
+            const cible = qr && materiels.find(m => (m.codeUnique || '').toLowerCase() === qr.toLowerCase());
+            if (cible) ouvrirQr(cible);
         });
 
+        function basculerPanneau() {
+            const panneau = document.getElementById('panneauAjout'), bouton = document.getElementById('btnAjouter');
+            const ouvrir = panneau.classList.contains('hidden');
+            panneau.classList.toggle('hidden', !ouvrir);
+            bouton.setAttribute('aria-expanded', ouvrir);
+            if (ouvrir) { panneau.scrollIntoView({ behavior: 'smooth', block: 'start' }); document.getElementById('designation').focus(); }
+        }
+
         function basculerChamps() {
-            const estDurable = document.getElementById('typeGestion').value === 'DURABLE';
-            document.getElementById('champDurable').classList.toggle('hidden', !estDurable);
+            const estDurable = typeChoisi() === 'DURABLE';
             document.getElementById('champConsommable').classList.toggle('hidden', estDurable);
-            document.getElementById('codeUnique').required = estDurable;
+            document.querySelectorAll('.choix-type').forEach(l => {
+                const actif = l.querySelector('input').checked;
+                l.style.borderColor = actif ? 'var(--lbs-marine)' : '';
+                l.style.boxShadow = actif ? '0 0 0 1px var(--lbs-marine)' : '';
+            });
         }
 
         async function chargerCategories() {
@@ -113,14 +149,36 @@
             const select = document.getElementById('categorie');
             select.innerHTML = categories.length
                 ? categories.map(c => `<option value="${c.id}">${echapper(c.nom)}</option>`).join('')
-                : '<option value="">Aucune catégorie — créez-en une</option>';
+                : '<option value="">Aucune catégorie : créez-en une d\'abord</option>';
             document.getElementById('filtreCategorie').innerHTML = '<option value="">Toutes les catégories</option>' +
                 categories.map(c => `<option value="${c.id}">${echapper(c.nom)}</option>`).join('');
         }
 
         async function chargerCatalogue() {
             materiels = await appelApi('/materiels');
+            afficherResume();
             afficherCatalogue();
+        }
+
+        function afficherResume() {
+            const durables = materiels.filter(m => m.typeGestion === 'DURABLE');
+            const fournitures = materiels.filter(m => m.typeGestion === 'CONSOMMABLE');
+            const tuile = (libelle, valeur, filtre, alerte) => `
+                <button data-filtre="${filtre}" class="text-left bg-white p-4 rounded-xl border ${alerte ? 'border-red-200 bg-red-50' : 'border-slate-200'} shadow-sm hover:border-blue-300 transition">
+                    <div class="text-xs font-medium text-slate-500">${libelle}</div>
+                    <div class="text-2xl font-bold mt-0.5 ${alerte ? 'text-red-700' : 'text-slate-800'}">${valeur}</div>
+                </button>`;
+            const bas = fournitures.filter(m => m.stockBas).length;
+            document.getElementById('resumeCatalogue').innerHTML =
+                tuile('Matériels durables', durables.length, '', false) +
+                tuile('Disponibles', durables.filter(m => m.statut === 'DISPONIBLE').length, 'DISPONIBLE', false) +
+                tuile('Empruntés ou réservés', durables.filter(m => m.statut === 'EMPRUNTE').length, 'EMPRUNTE', false) +
+                tuile('À vérifier ou en panne', durables.filter(m => ['A_VERIFIER', 'MAINTENANCE', 'HS'].includes(m.statut)).length, 'A_VERIFIER', false) +
+                tuile('Fournitures en stock bas', `${bas}<span class="text-sm font-normal text-slate-500"> / ${fournitures.length}</span>`, 'STOCK_BAS', bas > 0);
+            document.querySelectorAll('#resumeCatalogue [data-filtre]').forEach(b => b.addEventListener('click', () => {
+                document.getElementById('filtreStatut').value = b.dataset.filtre;
+                afficherCatalogue();
+            }));
         }
 
         function afficherCatalogue() {
@@ -131,47 +189,52 @@
             const liste = materiels.filter(m =>
                 (!texte || `${m.designation} ${m.codeUnique || ''}`.toLowerCase().includes(texte)) &&
                 (!categorieId || String(m.categorie.id) === categorieId) &&
-                (!statut || (statut === 'STOCK_BAS' ? m.stockBas : m.typeGestion === 'DURABLE' && m.statut === statut)));
+                (!statut || (statut === 'STOCK_BAS' ? m.stockBas
+                    : statut === 'FOURNITURE' ? m.typeGestion === 'CONSOMMABLE'
+                    : m.typeGestion === 'DURABLE' && m.statut === statut)));
 
-            document.getElementById('compteCatalogue').textContent = `${liste.length} matériel(s) sur ${materiels.length}`;
+            document.getElementById('compteCatalogue').textContent = liste.length === materiels.length
+                ? pluriel(materiels.length, 'matériel') : `${liste.length} sur ${pluriel(materiels.length, 'matériel')}`;
             const conteneur = document.getElementById('listeCatalogue');
-            if (!liste.length) { conteneur.innerHTML = etatVide('Aucun matériel ne correspond.'); return; }
+            if (!liste.length) { conteneur.innerHTML = etatVide('Aucun matériel ne correspond à cette recherche.'); return; }
 
             conteneur.innerHTML = '';
             liste.forEach(m => {
                 const estDurable = m.typeGestion === 'DURABLE';
-                const statutInfo = LABELS_STATUT_MATERIEL[m.statut];
-                const info = estDurable
-                    ? `<span class="text-xs text-slate-500 font-mono">${echapper(m.codeUnique || '')}</span> ${badge(statutInfo)}`
-                    : `<span class="text-xs ${m.stockBas ? 'text-red-600 font-semibold' : 'text-slate-500'}">Stock : ${m.quantiteStock}${m.stockBas ? ' ⚠' : ''}</span>
-                       <span class="text-xs text-slate-400">(alerte à ${m.seuilAlerte})</span>`;
+                const etat = estDurable
+                    ? badge(LABELS_STATUT_MATERIEL[m.statut])
+                    : `<span class="text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${m.quantiteStock === 0 ? 'bg-red-100 text-red-700' : m.stockBas ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-700'}">${m.quantiteStock === 0 ? 'Épuisé' : `${m.quantiteStock} en stock`}</span>`;
 
-                let actions;
+                let actionPrincipale;
                 if (estDurable) {
-                    actions = m.statut === 'EMPRUNTE'
-                        ? '<span class="text-xs text-slate-400 italic">Emprunté en ce moment</span>'
-                        : `<select class="choix-statut px-2 py-1.5 border border-slate-300 rounded-lg text-xs" aria-label="Statut">${
+                    actionPrincipale = m.statut === 'EMPRUNTE'
+                        ? `<a href="fiche-materiel.html?id=${m.id}" class="px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50" style="text-decoration:none">Qui l'a ?</a>`
+                        : `<select class="choix-statut px-2 py-1.5 border border-slate-300 rounded-lg text-xs" aria-label="Changer le statut de ${echapper(m.designation)}">${
                             Object.entries(LABELS_STATUT_MATERIEL).filter(([cle]) => cle !== 'EMPRUNTE')
                                 .map(([cle, l]) => `<option value="${cle}" ${cle === m.statut ? 'selected' : ''}>${l.texte}</option>`).join('')}</select>`;
                 } else {
-                    actions = `<button class="btn-stock px-2 py-1.5 text-xs font-medium rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50">+ Stock</button>`;
+                    actionPrincipale = `<button class="btn-stock px-2.5 py-1.5 text-xs font-medium rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50">Réapprovisionner</button>`;
                 }
 
                 const ligne = document.createElement('div');
-                ligne.className = 'flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 border border-slate-200 rounded-lg text-sm';
+                ligne.className = 'grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-2 py-3';
                 ligne.innerHTML = `
-                    <div class="space-y-1">
-                        <div class="font-medium text-slate-800">${echapper(m.designation)}
-                            <span class="text-xs font-normal text-slate-400">· ${echapper(m.categorie.nom)} · ${estDurable ? 'durable' : 'consommable'}</span></div>
-                        <div class="flex flex-wrap gap-2 items-center">${info}</div>
+                    <button class="btn-qr qr-mini row-span-2 sm:row-span-1" title="Agrandir le QR code de ${echapper(m.designation)}" aria-label="QR code de ${echapper(m.designation)}"></button>
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <a href="fiche-materiel.html?id=${m.id}" class="font-semibold text-slate-800 hover:underline" style="text-decoration:none">${echapper(m.designation)}</a>
+                            ${etat}
+                        </div>
+                        <div class="text-xs text-slate-500 mt-0.5"><span class="font-semibold tracking-wide text-slate-700">${echapper(m.codeUnique || '—')}</span> · ${echapper(m.categorie.nom.charAt(0) + m.categorie.nom.slice(1).toLowerCase())} · ${estDurable ? 'durable' : `fourniture, alerte à ${m.seuilAlerte}`}</div>
                     </div>
-                    <div class="flex items-center gap-2 shrink-0">
-                        ${actions}
-                        ${estDurable ? `<a href="fiche-materiel.html?id=${m.id}" class="px-2 py-1.5 text-xs font-medium rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50">Parcours</a>` : ''}
-                        <button class="btn-modifier px-2 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">Modifier</button>
-                        <button class="btn-supprimer px-2 py-1.5 text-xs font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50">Supprimer</button>
+                    <div class="flex flex-wrap items-center gap-1.5 sm:justify-end">
+                        ${actionPrincipale}
+                        <button class="btn-modifier px-2.5 py-1.5 text-xs font-medium rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Modifier</button>
+                        <button class="btn-supprimer px-2.5 py-1.5 text-xs font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50" aria-label="Supprimer ${echapper(m.designation)}">Supprimer</button>
                     </div>`;
 
+                const qr = ligne.querySelector('.btn-qr');
+                if (m.codeUnique) { dessinerQr(qr, m.codeUnique, 96); qr.addEventListener('click', () => ouvrirQr(m)); }
                 const choix = ligne.querySelector('.choix-statut');
                 if (choix) choix.addEventListener('change', () => action(`/materiels/${m.id}/statut`, 'PATCH', { statut: choix.value }));
                 const stock = ligne.querySelector('.btn-stock');
@@ -184,10 +247,10 @@
 
         async function ajouterMateriel(e) {
             e.preventDefault();
-            const typeGestion = document.getElementById('typeGestion').value;
+            const typeGestion = typeChoisi();
             const categorieId = document.getElementById('categorie').value;
             if (!categorieId) {
-                afficherMessage('messageAjout', "Créez d'abord une catégorie (page Salles & catégories).", false);
+                afficherMessage('messageAjout', "Créez d'abord une catégorie (page Salles et catégories).", false);
                 return;
             }
             const estDurable = typeGestion === 'DURABLE';
@@ -197,7 +260,7 @@
                     designation: document.getElementById('designation').value.trim(),
                     categorieId: parseInt(categorieId),
                     typeGestion,
-                    codeUnique: estDurable ? document.getElementById('codeUnique').value.trim() : null,
+                    codeUnique: document.getElementById('codeUnique').value.trim() || null,
                     quantiteStock: estDurable ? null : parseInt(document.getElementById('quantiteStock').value || '0'),
                     seuilAlerte: estDurable ? null : parseInt(document.getElementById('seuilAlerte').value || '0')
                 }
@@ -206,7 +269,8 @@
             if (resultat.success) {
                 document.getElementById('designation').value = '';
                 document.getElementById('codeUnique').value = '';
-                chargerCatalogue();
+                await chargerCatalogue();
+                ouvrirQr(resultat.materiel, 'Matériel ajouté : voici son QR code');
             }
         }
 
@@ -215,19 +279,19 @@
             const champs = [
                 { nom: 'designation', label: 'Désignation', valeur: m.designation, requis: true },
                 { nom: 'categorieId', label: 'Catégorie', type: 'select', valeur: m.categorie.id,
-                  options: categories.map(c => ({ valeur: c.id, texte: c.nom })) }
+                  options: categories.map(c => ({ valeur: c.id, texte: c.nom })) },
+                { nom: 'codeUnique', label: 'Code de l\'étiquette', valeur: m.codeUnique, requis: true,
+                  aide: 'Attention : changer le code oblige à réimprimer son étiquette QR.' }
             ];
-            if (estDurable) {
-                champs.push({ nom: 'codeUnique', label: 'Code unique', valeur: m.codeUnique, requis: true });
-            } else {
-                champs.push({ nom: 'seuilAlerte', label: "Seuil d'alerte de stock", type: 'number', valeur: m.seuilAlerte,
-                              aide: 'Une alerte apparaît quand le stock atteint ce nombre.' });
+            if (!estDurable) {
+                champs.push({ nom: 'seuilAlerte', label: 'Alerte de stock à partir de', type: 'number', valeur: m.seuilAlerte,
+                              aide: 'Une alerte apparaît sur le tableau de bord quand le stock atteint ce nombre.' });
             }
             const v = await demanderFormulaire({ titre: `Modifier « ${m.designation} »`, champs, bouton: 'Enregistrer' });
             if (!v) return;
             await action(`/materiels/${m.id}`, 'PUT', {
                 designation: v.designation, categorieId: parseInt(v.categorieId), typeGestion: m.typeGestion,
-                codeUnique: estDurable ? v.codeUnique : null,
+                codeUnique: v.codeUnique.trim().toUpperCase(),
                 seuilAlerte: estDurable ? null : parseInt(v.seuilAlerte || '0')
             });
         }

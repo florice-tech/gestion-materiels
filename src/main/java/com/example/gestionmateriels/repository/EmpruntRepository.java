@@ -31,6 +31,9 @@ public interface EmpruntRepository extends JpaRepository<Emprunt, Long> {
 
     long countByDateRetourGreaterThanEqual(LocalDateTime depuis);
 
+    // Fil d'activité : demandes déposées depuis une date
+    List<Emprunt> findByDateDemandeGreaterThanEqualOrderByDateDemandeDesc(LocalDateTime depuis);
+
     // Réservations d'un jour donné (calendrier, réservations du jour)
     List<Emprunt> findByStatutEmpruntAndDateReservationOrderByHeureDebutAsc(StatutEmprunt statut, LocalDate jour);
 

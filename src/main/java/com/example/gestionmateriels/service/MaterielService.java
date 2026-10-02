@@ -9,7 +9,9 @@ import com.example.gestionmateriels.repository.MaterielRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @Transactional
@@ -78,24 +80,64 @@ public class MaterielService {
                         "Catégorie introuvable (id=" + requete.categorieId() + ")."));
         materiel.setCategorie(categorie);
 
-        if (materiel.getTypeGestion() == Materiel.TypeGestion.DURABLE) {
-            String code = Verifications.obligatoire(requete.codeUnique(),
-                    "Le code unique est obligatoire pour un matériel durable.");
-            materielRepository.findByCodeUniqueIgnoreCase(code)
-                    .filter(autre -> !autre.getId().equals(materiel.getId()))
-                    .ifPresent(autre -> {
-                        throw new OperationException("Ce code unique existe déjà : " + code);
-                    });
-            materiel.setCodeUnique(code);
-        } else {
-            materiel.setCodeUnique(null);
-            if (requete.seuilAlerte() != null) {
-                if (requete.seuilAlerte() < 0) {
-                    throw new OperationException("Le seuil d'alerte ne peut pas être négatif.");
-                }
-                materiel.setSeuilAlerte(requete.seuilAlerte());
+        // Chaque matériel (durable ou fourniture) porte un code : c'est lui qui est imprimé dans son QR code.
+        String code = Verifications.facultatif(requete.codeUnique());
+        if (code == null) {
+            code = materiel.getCodeUnique() != null ? materiel.getCodeUnique() : genererCode(materiel.getDesignation());
+        }
+        if (!code.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,49}")) {
+            throw new OperationException("Le code ne peut contenir que des lettres, des chiffres, des points et des tirets (50 caractères au plus).");
+        }
+        String codeFinal = code;
+        materielRepository.findByCodeUniqueIgnoreCase(codeFinal)
+                .filter(autre -> !autre.getId().equals(materiel.getId()))
+                .ifPresent(autre -> {
+                    throw new OperationException("Ce code existe déjà : " + codeFinal + " (" + autre.getDesignation() + ").");
+                });
+        materiel.setCodeUnique(codeFinal);
+
+        if (materiel.getTypeGestion() == Materiel.TypeGestion.CONSOMMABLE && requete.seuilAlerte() != null) {
+            if (requete.seuilAlerte() < 0) {
+                throw new OperationException("Le seuil d'alerte ne peut pas être négatif.");
+            }
+            materiel.setSeuilAlerte(requete.seuilAlerte());
+        }
+    }
+
+    /**
+     * Donne un code aux matériels qui n'en ont pas encore (fournitures créées avant les QR codes).
+     * Appelé au démarrage ; renvoie le nombre de codes attribués.
+     */
+    public int attribuerCodesManquants() {
+        int n = 0;
+        for (Materiel m : materielRepository.findAllByOrderByDesignationAsc()) {
+            if (m.getCodeUnique() == null || m.getCodeUnique().isBlank()) {
+                m.setCodeUnique(genererCode(m.getDesignation()));
+                materielRepository.saveAndFlush(m);
+                n++;
             }
         }
+        return n;
+    }
+
+    /** « Craie blanche (boîte) » → CRA-01, puis CRA-02... ; « Vidéoprojecteur » → VID-01. */
+    String genererCode(String designation) {
+        String prefixe = prefixe(designation);
+        int numero = 1;
+        while (materielRepository.findByCodeUniqueIgnoreCase(String.format("%s-%02d", prefixe, numero)).isPresent()) {
+            numero++;
+        }
+        return String.format("%s-%02d", prefixe, numero);
+    }
+
+    static String prefixe(String designation) {
+        String texte = Normalizer.normalize(designation == null ? "" : designation, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]+", " ").trim();
+        if (texte.isEmpty()) {
+            return "MAT";
+        }
+        String mot = texte.split(" ")[0];
+        return mot.length() < 2 ? "MAT" : mot.substring(0, Math.min(3, mot.length()));
     }
 
     public void supprimerMateriel(Long id) {

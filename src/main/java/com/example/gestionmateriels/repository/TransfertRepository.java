@@ -21,4 +21,6 @@ public interface TransfertRepository extends JpaRepository<Transfert, Long> {
     List<Transfert> findByDetailSourceIdAndStatut(Long detailSourceId, Transfert.Statut statut);
 
     List<Transfert> findByMaterielIdOrderByDateDemandeDesc(Long materielId);
+
+    long countByStatut(Transfert.Statut statut);
 }

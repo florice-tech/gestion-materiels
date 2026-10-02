@@ -20,13 +20,16 @@ import java.util.Optional;
  * - il a une demande en attente ou une réservation du jour pour ce matériel : il la retire ;
  * - il l'a déjà : il le rend en indiquant son état ;
  * - un autre délégué l'a : il demande à le reprendre, l'autre accepte ou refuse (transfert).
+ * Une fourniture (consommable) a aussi son QR code : le scan sert à en demander une quantité au poste.
  */
 @Service
 @Transactional
 public class ScanService {
 
     public enum Action {
-        RECUPERER, RETIRER_DEMANDE, RENDRE, DEMANDER_TRANSFERT, TRANSFERT_EN_ATTENTE, INDISPONIBLE, CONSULTER
+        RECUPERER, RETIRER_DEMANDE, RENDRE, DEMANDER_TRANSFERT, TRANSFERT_EN_ATTENTE, INDISPONIBLE, CONSULTER,
+        /** Fourniture (craie, marqueurs...) : le délégué demande une quantité, à retirer au poste. */
+        DEMANDER_FOURNITURE
     }
 
     public record Detenteur(Long delegueId, String nom, String filiereNiveau, String salle,
@@ -62,6 +65,9 @@ public class ScanService {
     @Transactional(readOnly = true)
     public Situation situation(String code, UtilisateurConnecte moi) {
         Materiel materiel = parCode(code);
+        if (materiel.getTypeGestion() == Materiel.TypeGestion.CONSOMMABLE) {
+            return situationFourniture(materiel, moi);
+        }
         Optional<DetailEmprunt> enMain = ligneEnMain(materiel);
         Detenteur detenteur = enMain.map(ScanService::detenteur).orElse(null);
 
@@ -120,7 +126,7 @@ public class ScanService {
 
     /** Récupérer un matériel libre : l'emprunt commence immédiatement. */
     public Emprunt recuperer(String code, Long delegueId, String salle, LocalTime heureRetourPrevue) {
-        Materiel materiel = parCode(code);
+        Materiel materiel = durableParCode(code);
         Delegue delegue = empruntService.trouverDelegueActif(delegueId);
         if (heureRetourPrevue == null) {
             throw new OperationException("Indiquez l'heure à laquelle vous rendrez le matériel.");
@@ -154,7 +160,7 @@ public class ScanService {
 
     /** Retirer sa demande en attente ou sa réservation du jour en scannant le matériel. */
     public Emprunt retirer(String code, Long delegueId) {
-        Materiel materiel = parCode(code);
+        Materiel materiel = durableParCode(code);
         Emprunt fiche = ficheARetirer(materiel, delegueId)
                 .orElseThrow(() -> new OperationException("Vous n'avez pas de demande en attente pour ce matériel."));
         return empruntService.retirerDemandeParScan(fiche.getId(), delegueId);
@@ -162,7 +168,7 @@ public class ScanService {
 
     /** Rendre un matériel en le scannant : bon état, ou problème signalé (le matériel passe « à vérifier »). */
     public Emprunt rendre(String code, Long delegueId, boolean probleme, String remarque) {
-        Materiel materiel = parCode(code);
+        Materiel materiel = durableParCode(code);
         DetailEmprunt ligne = ligneEnMain(materiel)
                 .filter(l -> l.getEmprunt().getDelegue().getId().equals(delegueId))
                 .orElseThrow(() -> new OperationException("Vous n'avez pas ce matériel en votre possession."));
@@ -183,12 +189,40 @@ public class ScanService {
         return emprunt;
     }
 
+    /** Demander une quantité d'une fourniture scannée : la demande part au poste de surveillance. */
+    public Emprunt demanderFourniture(String code, Long delegueId, String salle, Integer quantite) {
+        Materiel materiel = parCode(code);
+        if (materiel.getTypeGestion() != Materiel.TypeGestion.CONSOMMABLE) {
+            throw new OperationException("Ce matériel n'est pas une fourniture.");
+        }
+        if (quantite == null || quantite < 1) {
+            throw new OperationException("Indiquez la quantité souhaitée.");
+        }
+        return empruntService.demanderEmprunt(delegueId, salle, null,
+                List.of(new com.example.gestionmateriels.dto.ArticleDemande(materiel.getId(), quantite)));
+    }
+
+    private Situation situationFourniture(Materiel materiel, UtilisateurConnecte moi) {
+        int stock = materiel.getQuantiteStock();
+        if (moi.estAgent()) {
+            return new Situation(materiel, Action.CONSULTER, "Fourniture : " + stock + " en stock (alerte à "
+                    + materiel.getSeuilAlerte() + ").", null, null, null);
+        }
+        if (stock <= 0) {
+            return new Situation(materiel, Action.INDISPONIBLE,
+                    "Stock épuisé pour le moment. Signalez-le au poste de surveillance.", null, null, null);
+        }
+        return new Situation(materiel, Action.DEMANDER_FOURNITURE, "Fourniture disponible (" + stock
+                + " en stock). Indiquez la quantité et la salle : vous la retirerez au poste de surveillance.",
+                null, null, null);
+    }
+
     // =====================================================================
     // Transferts entre délégués
     // =====================================================================
 
     public Transfert demanderTransfert(String code, Long delegueId, String salle, LocalTime heureRetourPrevue) {
-        Materiel materiel = parCode(code);
+        Materiel materiel = durableParCode(code);
         Delegue demandeur = empruntService.trouverDelegueActif(delegueId);
         DetailEmprunt ligne = ligneEnMain(materiel)
                 .orElseThrow(() -> new OperationException("Ce matériel n'est plus emprunté : vous pouvez le récupérer directement."));
@@ -304,6 +338,15 @@ public class ScanService {
         String c = Verifications.obligatoire(code, "Code du matériel manquant.");
         return materielRepository.findByCodeUniqueIgnoreCase(c)
                 .orElseThrow(() -> OperationException.introuvable("Aucun matériel ne porte le code « " + c + " »."));
+    }
+
+    private Materiel durableParCode(String code) {
+        Materiel materiel = parCode(code);
+        if (materiel.getTypeGestion() != Materiel.TypeGestion.DURABLE) {
+            throw new OperationException("« " + materiel.getDesignation()
+                    + " » est une fourniture : elle se demande au poste et ne se rend pas.");
+        }
+        return materiel;
     }
 
     private Optional<DetailEmprunt> ligneEnMain(Materiel materiel) {

@@ -181,7 +181,7 @@ class EmpruntServiceTests {
         emprunt.setHeureRetourPrevue(LocalTime.NOON);
 
         assertTrue(emprunt.isEnRetard());
-        StatistiqueService.TableauDeBord tableau = statistiqueService.tableauDeBord();
+        StatistiqueService.TableauDeBord tableau = statistiqueService.tableauDeBord(true);
         assertEquals(1, tableau.compteurs().empruntsEnCours());
         assertEquals(1, tableau.compteurs().empruntsEnRetard());
         assertEquals(7, tableau.activite7Jours().size());

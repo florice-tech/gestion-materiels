@@ -13,155 +13,323 @@
     <div id="entete"></div>
 
     <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-        <div class="flex flex-wrap items-end justify-between gap-2">
+        <div class="flex flex-wrap items-end justify-between gap-3">
             <div>
-                <h1 class="text-2xl md:text-3xl text-slate-800">Tableau de bord</h1>
-                <p id="dateDuJour" class="text-sm text-slate-500"></p>
+                <h1 id="bonjour" class="text-2xl md:text-3xl text-slate-800">Tableau de bord</h1>
+                <p id="phrase" class="text-sm text-slate-500 mt-1"></p>
             </div>
-            <button id="btnActualiser" class="text-sm text-blue-600 hover:underline font-medium">↻ Actualiser</button>
+            <button id="btnActualiser" class="inline-flex items-center gap-2 text-xs text-slate-500 hover:text-slate-800 px-2 py-1 rounded-lg" title="Actualiser maintenant">
+                <span class="point-direct" aria-hidden="true"></span><span id="majHeure">Chargement…</span>
+            </button>
         </div>
 
+        <!-- Vue administrateur -->
+        <section id="zoneAdmin" class="hidden bande-admin rounded-xl p-4 md:p-5 text-white">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 class="font-semibold">Vue administrateur</h2>
+                <div class="flex flex-wrap gap-2 text-sm">
+                    <a href="comptes.html" class="lien-admin">Comptes</a>
+                    <a href="parametres.html" class="lien-admin">Salles et catégories</a>
+                    <a href="etiquettes.html" class="lien-admin">Étiquettes QR</a>
+                    <a href="/api/emprunts/export" class="lien-admin">Exporter l'historique</a>
+                </div>
+            </div>
+            <div id="chiffresAdmin" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"></div>
+        </section>
+
         <!-- Compteurs -->
-        <section id="compteurs" class="grid grid-cols-2 lg:grid-cols-5 gap-3"></section>
+        <section id="compteurs" class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3" aria-label="Chiffres du jour"></section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <!-- À traiter -->
+            <section class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-2 px-5 pt-5 pb-3">
+                    <h2 class="font-semibold text-slate-800 text-lg">À traiter</h2>
+                    <a href="emprunt.html" class="text-sm text-blue-600">Toutes les demandes</a>
+                </div>
+                <div id="listeATraiter" class="px-5 pb-5 space-y-2"></div>
+            </section>
+
+            <!-- Activité récente -->
+            <section class="bg-white rounded-xl border border-slate-200 shadow-sm">
+                <div class="flex items-center justify-between px-5 pt-5 pb-3">
+                    <h2 class="font-semibold text-slate-800 text-lg">Activité récente</h2>
+                    <a href="historique.html" class="text-sm text-blue-600">Historique</a>
+                </div>
+                <ol id="filActivite" class="px-5 pb-5 space-y-3 max-h-[22rem] overflow-y-auto"></ol>
+            </section>
+        </div>
+
+        <!-- Matériel en circulation -->
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-2 px-5 pt-5 pb-3">
+                <div>
+                    <h2 class="font-semibold text-slate-800 text-lg">Matériel en circulation</h2>
+                    <p class="text-xs text-slate-500">Qui a quoi en ce moment, les retards en premier.</p>
+                </div>
+                <a href="retour.html" class="text-sm text-blue-600">Enregistrer un retour</a>
+            </div>
+            <div id="circulation"></div>
+        </section>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Activité 7 jours -->
             <section class="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <h2 class="font-semibold text-slate-800">Sorties de matériel — 7 derniers jours</h2>
-                <p class="text-xs text-slate-500 mb-4">Nombre de fiches validées (matériel remis) par jour</p>
-                <div id="graphiqueActivite" class="h-48 flex items-end gap-2 border-b border-slate-200"></div>
+                <h2 class="font-semibold text-slate-800 text-lg">Sorties sur 7 jours</h2>
+                <p class="text-xs text-slate-500 mb-4">Nombre de fiches de matériel remis chaque jour.</p>
+                <div id="graphiqueActivite" class="h-44 flex items-end gap-2 border-b border-slate-200"></div>
                 <div id="etiquettesActivite" class="flex gap-2 mt-2"></div>
             </section>
 
-            <!-- État du parc -->
             <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <h2 class="font-semibold text-slate-800">Matériel durable</h2>
+                <h2 class="font-semibold text-slate-800 text-lg">État du matériel durable</h2>
                 <p id="totalParc" class="text-xs text-slate-500 mb-4"></p>
+                <div id="barreParc" class="flex h-3 rounded-full overflow-hidden bg-slate-100 mb-4" role="img"></div>
                 <ul id="etatParc" class="space-y-2 text-sm"></ul>
             </section>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <div class="flex justify-between items-center mb-3">
-                    <h2 class="font-semibold text-slate-800">⚠ Retards</h2>
-                    <a href="retour.html" class="text-xs text-blue-600 hover:underline">Gérer les retours</a>
-                </div>
-                <div id="listeRetards" class="space-y-2"></div>
-            </section>
-
-            <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="font-semibold text-slate-800">Stocks bas</h2>
-                    <a href="materiel.html" class="text-xs text-blue-600 hover:underline">Catalogue</a>
+                    <h2 class="font-semibold text-slate-800 text-lg">Fournitures à racheter</h2>
+                    <a href="materiel.html" class="text-sm text-blue-600">Catalogue</a>
                 </div>
                 <div id="listeStocksBas" class="space-y-2"></div>
             </section>
 
             <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <h2 class="font-semibold text-slate-800 mb-3">Matériel le plus emprunté</h2>
+                <h2 class="font-semibold text-slate-800 text-lg mb-3">Matériel le plus emprunté</h2>
                 <div id="listePopulaires" class="space-y-3"></div>
             </section>
         </div>
     </main>
 
     <script>
+        const MODES_COURTS = { DEMANDE: 'remis au poste', AGENT: 'remis au poste', RESERVATION: 'réservation', SCAN: 'scan', TRANSFERT: 'transfert' };
+        const COULEURS_FIL = { DEMANDE: '#22406e', RESERVATION: '#5d82b2', SORTIE: '#22406e', SCAN: '#22406e', TRANSFERT: '#b26a00', RETOUR: '#1f7a4d', PROBLEME: '#a3141c' };
+        const LIBELLES_FIL = { DEMANDE: 'Demande', RESERVATION: 'Réservation', SORTIE: 'Sortie', SCAN: 'Scan', TRANSFERT: 'Transfert', RETOUR: 'Retour', PROBLEME: 'Problème' };
+        let moi = null, dernier = null;
+
         document.addEventListener('DOMContentLoaded', async () => {
-            await initPage({ type: 'AGENT', page: 'tableau' });
-            document.getElementById('dateDuJour').textContent =
-                new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            moi = await initPage({ type: 'AGENT', page: 'tableau' });
+            const heure = new Date().getHours();
+            document.getElementById('bonjour').textContent = `${heure < 18 ? 'Bonjour' : 'Bonsoir'}, ${moi.nom}`;
             document.getElementById('btnActualiser').addEventListener('click', charger);
             charger();
-            setInterval(charger, 60000); // actualisation automatique chaque minute
+            setInterval(charger, 30000);
+            // Les comptes à rebours (« dans 20 min ») avancent sans recharger
+            setInterval(() => dernier && afficherCirculation(dernier.enCirculation), 60000);
         });
 
         async function charger() {
             const t = await appelApi('/statistiques');
             if (!t || !t.compteurs) return;
+            dernier = t;
+            afficherPhrase(t);
+            afficherAdmin(t.administration);
             afficherCompteurs(t.compteurs);
+            afficherATraiter(t.demandesATraiter, t.reservationsDuJour, t.compteurs.demandesEnAttente);
+            afficherFil(t.activiteRecente);
+            afficherCirculation(t.enCirculation);
             afficherActivite(t.activite7Jours);
             afficherParc(t.parcDurable);
-            afficherRetards(t.retards);
             afficherStocksBas(t.stocksBas);
             afficherPopulaires(t.materielsPopulaires);
+            document.getElementById('majHeure').textContent = 'À jour à ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
         }
 
-        function tuile(libelle, valeur, lien, alerte) {
-            return `<a href="${lien}" class="bg-white p-4 rounded-xl border ${alerte ? 'border-red-300 bg-red-50' : 'border-slate-200'} shadow-sm hover:shadow-md transition block">
-                <div class="text-xs font-medium text-slate-500">${libelle}</div>
-                <div class="text-3xl font-bold mt-1 ${alerte ? 'text-red-700' : 'text-slate-800'}">${valeur}</div>
+        function afficherPhrase(t) {
+            const c = t.compteurs, morceaux = [];
+            if (c.demandesEnAttente) morceaux.push(pluriel(c.demandesEnAttente, 'demande') + ' à traiter');
+            if (c.reservationsAujourdhui) morceaux.push(pluriel(c.reservationsAujourdhui, 'réservation') + ' aujourd\'hui');
+            if (c.empruntsEnRetard) morceaux.push(pluriel(c.empruntsEnRetard, 'emprunt') + ' en retard');
+            const date = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+            document.getElementById('phrase').textContent = morceaux.length
+                ? `${date.charAt(0).toUpperCase() + date.slice(1)} : ${morceaux.join(', ')}.`
+                : `${date.charAt(0).toUpperCase() + date.slice(1)} : tout est en ordre, aucune demande en attente.`;
+        }
+
+        function afficherAdmin(a) {
+            const zone = document.getElementById('zoneAdmin');
+            zone.classList.toggle('hidden', !a);
+            if (!a) return;
+            const chiffre = (libelle, valeur, detail) => `
+                <div class="rounded-lg p-3" style="background:rgba(255,255,255,.08)">
+                    <div class="text-xs" style="color:#b9c6da">${libelle}</div>
+                    <div class="text-2xl font-bold mt-0.5">${valeur}</div>
+                    ${detail ? `<div class="text-[11px] mt-0.5" style="color:#b9c6da">${detail}</div>` : ''}
+                </div>`;
+            document.getElementById('chiffresAdmin').innerHTML =
+                chiffre('Taux d\'utilisation', `${a.tauxUtilisation} %`, 'du matériel durable sorti') +
+                chiffre('Agents actifs', a.agentsActifs, 'surveillants et admins') +
+                chiffre('Délégués', a.deleguesActifs, a.deleguesInscrits > a.deleguesActifs ? pluriel(a.deleguesInscrits - a.deleguesActifs, 'compte désactivé', 'comptes désactivés') : 'tous actifs') +
+                chiffre('Matériel durable', a.materielsDurables, 'chacun avec son QR code') +
+                chiffre('Fournitures', a.fournitures, 'suivies en stock');
+            document.getElementById('chiffresAdmin').lastElementChild.classList.add('col-span-2', 'sm:col-span-1');
+        }
+
+        function tuile(libelle, valeur, lien, ton) {
+            const tons = {
+                alerte: 'border-red-200 bg-red-50', attention: 'border-amber-200 bg-amber-50', normal: 'border-slate-200'
+            };
+            const couleurs = { alerte: 'text-red-700', attention: 'text-amber-800', normal: 'text-slate-800' };
+            return `<a href="${lien}" class="bg-white p-4 rounded-xl border ${tons[ton]} shadow-sm hover:border-blue-300 transition block" style="text-decoration:none">
+                <div class="text-xs font-medium text-slate-500 leading-snug">${libelle}</div>
+                <div class="text-3xl font-bold mt-1 ${couleurs[ton]}">${valeur}</div>
             </a>`;
         }
 
         function afficherCompteurs(c) {
             document.getElementById('compteurs').innerHTML =
-                tuile('Demandes à traiter', c.demandesEnAttente, 'emprunt.html', false) +
-                tuile('Emprunts en cours', c.empruntsEnCours, 'retour.html', false) +
-                tuile('En retard', c.empruntsEnRetard, 'retour.html', c.empruntsEnRetard > 0) +
-                tuile("Sorties aujourd'hui", c.sortiesAujourdhui, 'historique.html', false) +
-                tuile("Retours aujourd'hui", c.retoursAujourdhui, 'historique.html', false);
+                tuile('Demandes à traiter', c.demandesEnAttente, 'emprunt.html', c.demandesEnAttente ? 'attention' : 'normal') +
+                tuile('Réservations du jour', c.reservationsAujourdhui, 'emprunt.html', 'normal') +
+                tuile('Matériel sorti', c.materielsSortis, '#circulation', 'normal') +
+                tuile('En retard', c.empruntsEnRetard, 'retour.html', c.empruntsEnRetard ? 'alerte' : 'normal') +
+                tuile('Sorties du jour', c.sortiesAujourdhui, 'historique.html', 'normal') +
+                tuile('Retours du jour', c.retoursAujourdhui, 'historique.html', 'normal');
         }
 
-        // Diagramme en barres simple, une seule série : hauteur proportionnelle, valeur au survol et au-dessus
+        function afficherATraiter(demandes, reservations, totalDemandes) {
+            const zone = document.getElementById('listeATraiter');
+            if (!demandes.length && !reservations.length) {
+                zone.innerHTML = etatVide('Rien à traiter : aucune demande en attente ni réservation aujourd\'hui.');
+                return;
+            }
+            const ligneDemande = e => `
+                <a href="emprunt.html" class="flex flex-wrap sm:flex-nowrap items-center gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50 hover:border-amber-300" style="text-decoration:none">
+                    <span class="w-14 shrink-0 text-center leading-tight"><span class="block text-xs font-semibold text-amber-800">${momentCourt(e.dateDemande).jour}</span><span class="block text-[11px] text-slate-500">${momentCourt(e.dateDemande).heure}</span></span>
+                    <span class="min-w-0 flex-1">
+                        <span class="block text-sm font-semibold text-slate-800">${echapper(e.delegue.nom)} <span class="font-normal text-slate-500">· salle ${echapper(e.salle)}</span></span>
+                        <span class="block text-xs text-slate-600 truncate">${echapper(resumeArticles(e.details))}${e.heureRetourPrevue ? ` · retour à ${formaterHeure(e.heureRetourPrevue)}` : ''}</span>
+                    </span>
+                    <span class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white">Traiter</span>
+                </a>`;
+            const ligneReservation = e => `
+                <a href="emprunt.html" class="flex flex-wrap sm:flex-nowrap items-center gap-3 p-3 rounded-lg border border-slate-200 hover:border-blue-300" style="text-decoration:none">
+                    <span class="w-14 shrink-0 text-center"><span class="block text-sm font-bold text-slate-800">${formaterHeure(e.heureDebut)}</span><span class="block text-[11px] text-slate-500">${formaterHeure(e.heureRetourPrevue)}</span></span>
+                    <span class="min-w-0 flex-1">
+                        <span class="block text-sm font-semibold text-slate-800">${echapper(e.delegue.nom)} <span class="font-normal text-slate-500">· salle ${echapper(e.salle)}</span></span>
+                        <span class="block text-xs text-slate-600 truncate">${echapper(resumeArticles(e.details))}</span>
+                    </span>
+                    <span class="text-xs font-medium px-2 py-1 rounded-full bg-blue-100 text-blue-800">Réservé</span>
+                </a>`;
+            zone.innerHTML =
+                (demandes.length ? `<h3 class="text-xs font-semibold text-slate-500 pt-1">Demandes en attente${totalDemandes > demandes.length ? ` (5 sur ${totalDemandes})` : ''}</h3>` + demandes.map(ligneDemande).join('') : '') +
+                (reservations.length ? `<h3 class="text-xs font-semibold text-slate-500 pt-3">Réservations d'aujourd'hui</h3>` + reservations.map(ligneReservation).join('') : '');
+        }
+
+        function afficherFil(evenements) {
+            const zone = document.getElementById('filActivite');
+            if (!evenements.length) { zone.innerHTML = `<li>${etatVide('Aucun mouvement ces deux derniers jours.')}</li>`; return; }
+            zone.innerHTML = evenements.map(ev => `
+                <li class="flex gap-3">
+                    <span class="mt-1.5 w-2.5 h-2.5 rounded-full shrink-0" style="background:${COULEURS_FIL[ev.type] || '#5a6478'}" aria-hidden="true"></span>
+                    <a href="${ev.lien}" class="min-w-0 group" style="text-decoration:none">
+                        <span class="block text-sm text-slate-700 group-hover:text-slate-900">${echapper(ev.texte)}</span>
+                        <span class="block text-[11px] text-slate-400 mt-0.5">${LIBELLES_FIL[ev.type] || ''} · ${formaterDepuis(ev.quand)}</span>
+                    </a>
+                </li>`).join('');
+        }
+
+        function afficherCirculation(sorties) {
+            const zone = document.getElementById('circulation');
+            if (!sorties.length) {
+                zone.innerHTML = `<div class="px-5 pb-5">${etatVide('Tout le matériel durable est rentré.')}</div>`;
+                return;
+            }
+            const triees = [...sorties].sort((a, b) => (b.enRetard - a.enRetard) || (a.retourPrevu || '99').localeCompare(b.retourPrevu || '99'));
+            const echeance = s => s.retourPrevu ? `${s.depuis.substring(0, 10)}T${s.retourPrevu}` : null;
+            const restant = s => {
+                const r = tempsRestant(echeance(s));
+                if (s.enRetard && !r.retard) return { texte: 'en retard', retard: true };
+                return r;
+            };
+            const lignes = triees.map(s => {
+                const r = restant(s);
+                const couleur = r.retard ? 'text-red-700 font-semibold' : r.bientot ? 'text-amber-800 font-medium' : 'text-slate-500';
+                return `<tr class="${r.retard ? 'bg-red-50' : ''}">
+                    <td class="py-3 pl-5 pr-3"><a href="fiche-materiel.html?id=${s.materielId}" class="font-semibold text-slate-800" style="text-decoration:none">${echapper(s.designation)}</a>
+                        <span class="block text-xs text-slate-500">${echapper(s.code)} · ${MODES_COURTS[s.mode] || ''}</span></td>
+                    <td class="py-3 px-3"><span class="text-slate-800">${echapper(s.delegue)}</span><span class="block text-xs text-slate-500">${echapper(s.filiereNiveau)}</span></td>
+                    <td class="py-3 px-3 text-slate-700">${echapper(s.salle)}</td>
+                    <td class="py-3 px-3 text-slate-600 whitespace-nowrap">${formaterDepuis(s.depuis)}</td>
+                    <td class="py-3 pl-3 pr-5 whitespace-nowrap"><span class="text-slate-800">${s.retourPrevu ? formaterHeure(s.retourPrevu) : '—'}</span><span class="block text-xs ${couleur}">${r.texte}</span></td>
+                </tr>`;
+            }).join('');
+            const cartes = triees.map(s => {
+                const r = restant(s);
+                return `<a href="fiche-materiel.html?id=${s.materielId}" class="block p-3 rounded-lg border ${r.retard ? 'border-red-200 bg-red-50' : 'border-slate-200'}" style="text-decoration:none">
+                    <div class="flex justify-between gap-2"><span class="font-semibold text-slate-800">${echapper(s.designation)}</span>
+                        <span class="text-xs whitespace-nowrap ${r.retard ? 'text-red-700 font-semibold' : r.bientot ? 'text-amber-800' : 'text-slate-500'}">${r.texte}</span></div>
+                    <div class="text-xs text-slate-600 mt-0.5">${echapper(s.delegue)} · salle ${echapper(s.salle)}${s.retourPrevu ? ` · retour ${formaterHeure(s.retourPrevu)}` : ''}</div>
+                </a>`;
+            }).join('');
+            zone.innerHTML = `
+                <div class="hidden md:block overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead><tr class="text-left text-xs text-slate-500 border-y border-slate-200 bg-slate-50">
+                            <th class="py-2 pl-5 pr-3 font-medium">Matériel</th><th class="py-2 px-3 font-medium">Chez</th><th class="py-2 px-3 font-medium">Salle</th>
+                            <th class="py-2 px-3 font-medium">Sorti</th><th class="py-2 pl-3 pr-5 font-medium">Retour prévu</th></tr></thead>
+                        <tbody class="divide-y divide-slate-100">${lignes}</tbody>
+                    </table>
+                </div>
+                <div class="md:hidden px-4 pb-4 space-y-2">${cartes}</div>`;
+        }
+
         function afficherActivite(jours) {
             const max = Math.max(1, ...jours.map(j => j.sorties));
-            document.getElementById('graphiqueActivite').innerHTML = jours.map(j => {
+            document.getElementById('graphiqueActivite').innerHTML = jours.map((j, i) => {
                 const hauteur = j.sorties === 0 ? 0 : Math.max(4, Math.round(j.sorties / max * 100));
-                return `<div class="flex-1 h-full flex flex-col justify-end items-center group" title="${formaterJour(j.jour + 'T00:00:00')} : ${j.sorties} sortie(s)">
+                const aujourdhui = i === jours.length - 1;
+                return `<div class="flex-1 h-full flex flex-col justify-end items-center group" title="${formaterJour(j.jour + 'T00:00:00')} : ${pluriel(j.sorties, 'sortie')}">
                     <span class="text-xs text-slate-600 mb-1 ${j.sorties === 0 ? 'opacity-0' : ''}">${j.sorties}</span>
-                    <div class="w-full max-w-10 bg-blue-500 group-hover:bg-blue-700 rounded-t" style="height:${hauteur}%"></div>
+                    <div class="w-full max-w-10 rounded-t ${aujourdhui ? 'bg-blue-700' : 'bg-blue-400'} group-hover:bg-blue-800" style="height:${hauteur}%"></div>
                 </div>`;
             }).join('');
-            document.getElementById('etiquettesActivite').innerHTML = jours.map(j =>
-                `<div class="flex-1 text-center text-[11px] text-slate-500 whitespace-nowrap">${formaterJourCourt(j.jour)}</div>`).join('');
+            document.getElementById('etiquettesActivite').innerHTML = jours.map((j, i) =>
+                `<div class="flex-1 text-center text-[11px] whitespace-nowrap ${i === jours.length - 1 ? 'text-slate-800 font-semibold' : 'text-slate-500'}">${i === jours.length - 1 ? 'auj.' : formaterJourCourt(j.jour)}</div>`).join('');
         }
 
         function afficherParc(p) {
-            document.getElementById('totalParc').textContent = `${p.total} équipement(s) suivis à l'unité`;
+            document.getElementById('totalParc').textContent = `${pluriel(p.total, 'équipement suivi', 'équipements suivis')} à l'unité.`;
             const lignes = [
-                ['DISPONIBLE', p.disponibles], ['EMPRUNTE', p.empruntes, 'Emprunté ou réservé'], ['A_VERIFIER', p.aVerifier],
-                ['MAINTENANCE', p.maintenance], ['HS', p.horsService]
+                ['DISPONIBLE', p.disponibles, 'Disponible', '#1f7a4d'], ['EMPRUNTE', p.empruntes, 'Emprunté ou réservé', '#22406e'],
+                ['A_VERIFIER', p.aVerifier, 'À vérifier', '#d99a2b'], ['MAINTENANCE', p.maintenance, 'En maintenance', '#c2410c'],
+                ['HS', p.horsService, 'Hors service', '#9aa7bd']
             ];
-            document.getElementById('etatParc').innerHTML = lignes.map(([statut, n, libelle]) => {
-                const info = libelle ? { ...LABELS_STATUT_MATERIEL[statut], texte: libelle } : LABELS_STATUT_MATERIEL[statut];
-                const pct = p.total ? Math.round(n / p.total * 100) : 0;
-                return `<li>
-                    <div class="flex justify-between"><span>${badge(info)}</span><span class="font-semibold text-slate-700">${n}</span></div>
-                    <div class="h-1.5 bg-slate-100 rounded mt-1"><div class="h-1.5 bg-slate-400 rounded" style="width:${pct}%"></div></div>
-                </li>`;
-            }).join('');
-        }
-
-        function afficherRetards(retards) {
-            const zone = document.getElementById('listeRetards');
-            if (!retards.length) { zone.innerHTML = etatVide('Aucun retard 👍'); return; }
-            zone.innerHTML = retards.map(e => `
-                <div class="p-3 rounded-lg border border-red-200 bg-red-50 text-sm">
-                    <div class="font-semibold text-slate-800">${echapper(e.delegue.nom)} <span class="text-xs font-normal text-slate-500">— salle ${echapper(e.salle)}</span></div>
-                    <div class="text-xs text-red-700">Attendu le ${formaterDate(e.echeance)}</div>
-                    <div class="text-xs text-slate-600 mt-1">${listeArticlesHtml(e)}</div>
-                </div>`).join('');
+            document.getElementById('barreParc').innerHTML = lignes.filter(l => l[1]).map(([, n, libelle, couleur]) =>
+                `<span style="width:${n / Math.max(1, p.total) * 100}%;background:${couleur}" title="${libelle} : ${n}"></span>`).join('');
+            document.getElementById('barreParc').setAttribute('aria-label', lignes.map(l => `${l[2]} : ${l[1]}`).join(', '));
+            document.getElementById('etatParc').innerHTML = lignes.map(([statut, n, libelle, couleur]) => `
+                <li><a href="materiel.html" class="flex items-center justify-between gap-3 ${n ? '' : 'opacity-50'}" style="text-decoration:none">
+                    <span class="flex items-center gap-2 text-slate-700"><span class="w-2.5 h-2.5 rounded-full" style="background:${couleur}"></span>${libelle}</span>
+                    <span class="font-semibold text-slate-800">${n}</span></a></li>`).join('');
         }
 
         function afficherStocksBas(materiels) {
             const zone = document.getElementById('listeStocksBas');
             if (!materiels.length) { zone.innerHTML = etatVide('Tous les stocks sont suffisants.'); return; }
-            zone.innerHTML = materiels.map(m => `
-                <div class="flex justify-between items-center p-3 rounded-lg border border-amber-200 bg-amber-50 text-sm">
-                    <span class="font-medium text-slate-800">${echapper(m.designation)}</span>
-                    <span class="text-xs ${m.quantiteStock === 0 ? 'text-red-700 font-bold' : 'text-amber-800'}">
-                        ${m.quantiteStock === 0 ? 'Épuisé' : `${m.quantiteStock} restant(s)`} · seuil ${m.seuilAlerte}</span>
-                </div>`).join('');
+            zone.innerHTML = materiels.map(m => {
+                const pct = Math.min(100, Math.round(m.quantiteStock / Math.max(1, m.seuilAlerte * 2) * 100));
+                return `<div class="p-3 rounded-lg border ${m.quantiteStock === 0 ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'} text-sm">
+                    <div class="flex justify-between gap-3">
+                        <span class="font-medium text-slate-800">${echapper(m.designation)}</span>
+                        <span class="text-xs whitespace-nowrap ${m.quantiteStock === 0 ? 'text-red-700 font-bold' : 'text-amber-800 font-semibold'}">${m.quantiteStock === 0 ? 'Épuisé' : `Il en reste ${m.quantiteStock}`}</span>
+                    </div>
+                    <div class="h-1.5 rounded mt-2" style="background:rgba(0,0,0,.08)"><div class="h-1.5 rounded" style="width:${pct}%;background:${m.quantiteStock === 0 ? '#a3141c' : '#d99a2b'}"></div></div>
+                    <div class="text-[11px] text-slate-500 mt-1">Alerte à partir de ${m.seuilAlerte}</div>
+                </div>`;
+            }).join('');
         }
 
         function afficherPopulaires(liste) {
             const zone = document.getElementById('listePopulaires');
             if (!liste.length) { zone.innerHTML = etatVide('Pas encore d\'emprunt.'); return; }
             const max = Math.max(...liste.map(m => m.nombreEmprunts));
-            zone.innerHTML = liste.map(m => `
-                <div class="text-sm" title="${echapper(m.designation)} : ${m.nombreEmprunts} emprunt(s), ${m.quantiteTotale} unité(s)">
-                    <div class="flex justify-between"><span class="text-slate-700">${echapper(m.designation)}</span>
-                        <span class="font-semibold text-slate-700">${m.nombreEmprunts}</span></div>
+            zone.innerHTML = liste.map((m, i) => `
+                <div class="text-sm" title="${echapper(m.designation)} : ${pluriel(m.nombreEmprunts, 'emprunt')}">
+                    <div class="flex justify-between gap-3"><span class="text-slate-700"><span class="text-slate-400 mr-1.5">${i + 1}.</span>${echapper(m.designation)}</span>
+                        <span class="font-semibold text-slate-700 whitespace-nowrap">${pluriel(m.nombreEmprunts, 'fois', 'fois')}</span></div>
                     <div class="h-1.5 bg-slate-100 rounded mt-1"><div class="h-1.5 bg-blue-500 rounded" style="width:${Math.round(m.nombreEmprunts / max * 100)}%"></div></div>
                 </div>`).join('');
         }

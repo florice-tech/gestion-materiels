@@ -15,4 +15,6 @@ public interface DelegueRepository extends JpaRepository<Delegue, Long> {
     boolean existsByIdentifiantIgnoreCase(String identifiant);
 
     List<Delegue> findAllByOrderByNomAsc();
+
+    long countByActifTrue();
 }

@@ -55,4 +55,12 @@ public class ScanController {
         return Reponses.ok("Demande envoyée à " + t.getDetenteur().getNom() + ". Vous serez prévenu de sa réponse.",
                 "transfertId", t.getId());
     }
+
+    @PostMapping("/{code}/fourniture")
+    public ResponseEntity<Map<String, Object>> fourniture(@AuthenticationPrincipal UtilisateurConnecte moi,
+                                                          @PathVariable String code, @RequestBody ScanRequest r) {
+        var emprunt = scanService.demanderFourniture(code, moi.getId(), r.salle(), r.quantite());
+        return Reponses.ok("Demande envoyée au poste de surveillance : vous y retirerez votre fourniture.",
+                "empruntId", emprunt.getId());
+    }
 }

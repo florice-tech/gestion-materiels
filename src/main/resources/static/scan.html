@@ -128,7 +128,8 @@
 
         function afficherSituation(s) {
             const m = s.materiel, zone = document.getElementById('resultat');
-            const statut = LABELS_STATUT_MATERIEL[m.statut];
+            const statut = m.typeGestion === 'DURABLE' ? LABELS_STATUT_MATERIEL[m.statut]
+                : { texte: m.quantiteStock > 0 ? `${m.quantiteStock} en stock` : 'Épuisé', classe: m.quantiteStock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' };
             const d = s.detenteur;
             const blocDetenteur = d ? `
                 <div class="rounded-lg border ${d.enRetard ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-slate-50'} p-3 text-sm">
@@ -162,11 +163,21 @@
                         <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg">Demander à ${echapper(d.nom)} de me le passer</button>
                         <p class="text-xs text-slate-500">${echapper(d.nom)} recevra une notification et devra accepter. Le matériel passera alors sous votre responsabilité.</p></form>`;
                     break;
+                case 'DEMANDER_FOURNITURE':
+                    action = `<form id="formAction" class="space-y-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div><label for="salle" class="block text-sm font-medium text-slate-700 mb-1">Salle</label>
+                                <select id="salle" required class="w-full px-3 py-2.5 border border-slate-300 rounded-lg">${optionsSalles()}</select></div>
+                            <div><label for="quantite" class="block text-sm font-medium text-slate-700 mb-1">Quantité</label>
+                                <input id="quantite" type="number" min="1" max="${m.quantiteStock}" value="1" required class="w-full px-3 py-2.5 border border-slate-300 rounded-lg"></div>
+                        </div>
+                        <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg">Demander au poste de surveillance</button></form>`;
+                    break;
                 case 'TRANSFERT_EN_ATTENTE':
                     action = `<button id="btnAnnulerTransfert" class="w-full border border-slate-300 text-slate-700 font-medium py-2.5 rounded-lg hover:bg-slate-50">Annuler ma demande</button>`;
                     break;
                 case 'CONSULTER':
-                    action = `<a href="fiche-materiel.html?id=${m.id}" class="block text-center w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg">Voir le parcours de ce matériel</a>`;
+                    action = `<a href="fiche-materiel.html?id=${m.id}" class="block text-center w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg" style="text-decoration:none">${m.typeGestion === 'DURABLE' ? 'Voir le parcours de ce matériel' : 'Voir la fiche de cette fourniture'}</a>`;
                     break;
             }
 
@@ -174,7 +185,7 @@
                 <div class="p-5 border-b border-slate-200 flex items-start justify-between gap-3">
                     <div class="min-w-0">
                         <h2 class="text-xl font-semibold text-slate-800">${echapper(m.designation)}</h2>
-                        <div class="text-sm text-slate-500 mt-0.5">${echapper(m.codeUnique || '')} · ${echapper(m.categorie.nom)}</div>
+                        <div class="text-sm text-slate-500 mt-0.5"><span class="font-semibold tracking-wide text-slate-700">${echapper(m.codeUnique || '')}</span> · ${m.typeGestion === 'DURABLE' ? echapper(m.categorie.nom.charAt(0) + m.categorie.nom.slice(1).toLowerCase()) : 'Fourniture'}</div>
                     </div>
                     ${badge(statut)}
                 </div>
@@ -204,7 +215,9 @@
             if (!form) return;
             form.addEventListener('submit', e => {
                 e.preventDefault();
-                if (s.action === 'RENDRE') {
+                if (s.action === 'DEMANDER_FOURNITURE') {
+                    envoyer('fourniture', { salle: document.getElementById('salle').value, quantite: parseInt(document.getElementById('quantite').value || '0') });
+                } else if (s.action === 'RENDRE') {
                     const probleme = document.querySelector('input[name=etat]:checked').value === 'probleme';
                     envoyer('rendre', { probleme, remarque: document.getElementById('remarque').value });
                 } else {
@@ -225,7 +238,7 @@
                     <div class="mx-auto w-12 h-12 rounded-full grid place-items-center bg-green-50 text-green-700 text-2xl" aria-hidden="true">✓</div>
                     <p class="text-slate-800 font-medium">${echapper(r.message)}</p>
                     <div class="flex flex-wrap justify-center gap-2 pt-2">
-                        ${r.empruntId ? `<a href="bon.html?id=${r.empruntId}" class="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 hover:bg-slate-50">Voir le bon d'emprunt</a>` : ''}
+                        ${r.empruntId ? `<a href="bon.html?id=${r.empruntId}" class="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 hover:bg-slate-50" style="text-decoration:none">Voir le bon d'emprunt</a>` : ''}
                         <a href="mes-emprunts.html" class="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 hover:bg-slate-50">Mes emprunts</a>
                         <a href="scan.html" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">Scanner un autre matériel</a>
                     </div>

@@ -18,4 +18,6 @@ public interface AgentRepository extends JpaRepository<Agent, Long> {
 
     // Nombre d'administrateurs encore actifs (on ne doit jamais tomber à zéro)
     long countByAdministrateurTrueAndActifTrue();
+
+    long countByActifTrue();
 }

@@ -93,7 +93,7 @@
                 return (!texte || contenu.includes(texte)) && statutOk && (!du || jour >= du) && (!au || jour <= au);
             });
 
-            document.getElementById('compte').textContent = `${liste.length} fiche(s) sur ${historique.length}`;
+            document.getElementById('compte').textContent = liste.length === historique.length ? pluriel(liste.length, 'fiche') : `${liste.length} sur ${pluriel(historique.length, 'fiche')}`;
             const corps = document.getElementById('corpsTableau');
             if (!liste.length) {
                 corps.innerHTML = `<tr><td colspan="9">${etatVide('Aucun résultat.')}</td></tr>`;

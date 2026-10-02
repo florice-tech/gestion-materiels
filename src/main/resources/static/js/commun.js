@@ -471,3 +471,169 @@ function demanderFormulaire({ titre, texte = '', champs = [], bouton = 'Valider'
 async function confirmer(titre, texte, bouton = 'Confirmer', danger = false) {
     return (await demanderFormulaire({ titre, texte, bouton, danger })) !== null;
 }
+
+// ---------------------------------------------------------------------------
+// QR codes : chaque matériel a le sien (lien vers scan.html?code=...)
+// ---------------------------------------------------------------------------
+
+let _baseQr = null, _bibliothequeQr = null;
+
+/** Adresse que les téléphones utiliseront (APP_URL si défini, sinon l'adresse de la page). */
+async function adresseQr() {
+    if (_baseQr) return _baseQr;
+    const config = await appelApi('/config');
+    _baseQr = (config && config.urlPublique) || location.origin;
+    return _baseQr;
+}
+
+function lienScan(base, code) {
+    return `${base}/scan.html?code=${encodeURIComponent(code)}`;
+}
+
+function adresseInjoignable(base) {
+    return /\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(base);
+}
+
+function chargerBibliothequeQr() {
+    if (window.QRCode) return Promise.resolve(true);
+    if (!_bibliothequeQr) {
+        _bibliothequeQr = new Promise(resolve => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+            script.onload = () => resolve(true);
+            script.onerror = () => resolve(false);
+            document.head.appendChild(script);
+        });
+    }
+    return _bibliothequeQr;
+}
+
+/** Dessine le QR code du matériel dans l'élément (canvas + image générés par qrcodejs). */
+async function dessinerQr(element, code, taille = 220) {
+    const ok = await chargerBibliothequeQr();
+    const base = await adresseQr();
+    element.innerHTML = '';
+    if (!ok || !window.QRCode) {
+        element.innerHTML = '<span class="text-[10px] text-slate-400">QR indisponible hors ligne</span>';
+        return;
+    }
+    new QRCode(element, { text: lienScan(base, code), width: taille, height: taille,
+                          colorDark: '#152a49', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+}
+
+/** Étiquette PNG prête à imprimer : QR code, désignation, code et nom de l'école. */
+function telechargerEtiquette(conteneurQr, materiel) {
+    const source = conteneurQr.querySelector('canvas');
+    if (!source) return;
+    const largeur = 600, marge = 40, cote = largeur - 2 * marge;
+    const toile = document.createElement('canvas');
+    toile.width = largeur; toile.height = cote + 2 * marge + 170;
+    const ctx = toile.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, toile.width, toile.height);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(source, marge, marge, cote, cote);
+    ctx.textAlign = 'center'; ctx.fillStyle = '#152a49';
+    ctx.font = '600 30px "Public Sans", Arial, sans-serif';
+    ctx.fillText(materiel.designation.slice(0, 34), largeur / 2, cote + marge + 55);
+    ctx.font = '800 54px "Public Sans", Arial, sans-serif';
+    ctx.fillText(materiel.codeUnique, largeur / 2, cote + marge + 115);
+    ctx.fillStyle = '#5a6478'; ctx.font = '22px "Public Sans", Arial, sans-serif';
+    ctx.fillText('Lomé Business School · scannez pour emprunter', largeur / 2, cote + marge + 155);
+    const lien = document.createElement('a');
+    lien.download = `QR-${materiel.codeUnique}.png`;
+    lien.href = toile.toDataURL('image/png');
+    lien.click();
+}
+
+/** Fenêtre avec le QR code d'un matériel : télécharger, imprimer, ouvrir la fiche. */
+async function ouvrirQr(materiel, titre) {
+    const fond = document.createElement('div');
+    fond.className = 'fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4';
+    const durable = materiel.typeGestion === 'DURABLE';
+    fond.innerHTML = `
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-5 space-y-4 text-center" role="dialog" aria-modal="true" aria-labelledby="titreQr">
+            <div>
+                <h2 id="titreQr" class="text-lg font-bold text-slate-800">${echapper(titre || materiel.designation)}</h2>
+                ${titre ? `<p class="text-sm text-slate-500">${echapper(materiel.designation)}</p>` : ''}
+            </div>
+            <div class="zone-qr mx-auto bg-white p-3 rounded-lg border border-slate-200" style="width:min(260px,100%)"></div>
+            <div>
+                <div class="text-2xl font-extrabold tracking-wider text-slate-800">${echapper(materiel.codeUnique)}</div>
+                <p class="text-xs text-slate-500 mt-1">${durable
+                    ? 'Le délégué scanne ce code pour récupérer, rendre ou demander le matériel.'
+                    : 'Le délégué scanne ce code pour demander cette fourniture au poste.'}</p>
+                <p class="avert-qr hidden text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2 text-left"></p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <button data-png class="px-3 py-2.5 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium">Télécharger</button>
+                <a href="etiquettes.html?code=${encodeURIComponent(materiel.codeUnique)}" class="px-3 py-2.5 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50" style="text-decoration:none">Imprimer</a>
+                ${materiel.id ? `<a href="fiche-materiel.html?id=${materiel.id}" class="col-span-2 px-3 py-2.5 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50" style="text-decoration:none">${durable ? 'Voir le parcours' : 'Voir la fiche'}</a>` : ''}
+            </div>
+            <button data-fermer class="text-sm text-slate-500 hover:text-slate-800">Fermer</button>
+        </div>`;
+    const fermer = () => { fond.remove(); document.removeEventListener('keydown', echap); };
+    const echap = e => { if (e.key === 'Escape') fermer(); };
+    fond.addEventListener('click', e => { if (e.target === fond) fermer(); });
+    fond.querySelector('[data-fermer]').addEventListener('click', fermer);
+    document.addEventListener('keydown', echap);
+    document.body.appendChild(fond);
+    const zone = fond.querySelector('.zone-qr');
+    await dessinerQr(zone, materiel.codeUnique, 512);
+    zone.querySelectorAll('img, canvas').forEach(el => { el.style.width = '100%'; el.style.height = 'auto'; });
+    fond.querySelector('[data-png]').addEventListener('click', () => telechargerEtiquette(zone, materiel));
+    const base = await adresseQr();
+    if (adresseInjoignable(base)) {
+        const av = fond.querySelector('.avert-qr');
+        av.textContent = `Ce QR code pointe vers ${base}, que les téléphones ne peuvent pas joindre. Lancez le serveur avec APP_URL (adresse réseau du PC) avant d'imprimer.`;
+        av.classList.remove('hidden');
+    }
+    fond.querySelector('[data-png]').focus();
+}
+
+/** Accord simple : pluriel(3, 'emprunt') → « 3 emprunts ». */
+function pluriel(n, mot, motPluriel) {
+    return `${n} ${n > 1 ? (motPluriel || mot + 's') : mot}`;
+}
+
+/** Temps restant avant une échéance : « dans 1 h 20 », « dans 5 min », « en retard de 35 min ». */
+function tempsRestant(iso) {
+    if (!iso) return { texte: '', retard: false };
+    const minutes = Math.round((new Date(iso).getTime() - Date.now()) / 60000);
+    const duree = m => {
+        m = Math.abs(m);
+        if (m < 60) return `${m} min`;
+        if (m < 1440) return `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}`;
+        return pluriel(Math.floor(m / 1440), 'jour');
+    };
+    if (minutes < 0) return { texte: `en retard de ${duree(minutes)}`, retard: true };
+    if (minutes === 0) return { texte: 'maintenant', retard: false };
+    return { texte: `dans ${duree(minutes)}`, retard: false, bientot: minutes <= 30 };
+}
+
+/** « Câble HDMI », « Câble HDMI et Micro », « Câble HDMI, Micro et 2 autres ». */
+function resumeArticles(details) {
+    const noms = (details || []).map(d => d.materiel.designation + (d.materiel.typeGestion === 'CONSOMMABLE' ? ` × ${d.quantite}` : ''));
+    if (noms.length <= 2) return noms.join(' et ');
+    return `${noms[0]}, ${noms[1]} et ${pluriel(noms.length - 2, 'autre')}`;
+}
+
+/** Date de réservation lisible : « aujourd'hui », « demain », « samedi 3 octobre ». */
+function formaterJourReservation(jourIso) {
+    const jour = new Date(jourIso + 'T00:00');
+    const auj = new Date(); auj.setHours(0, 0, 0, 0);
+    const ecart = Math.round((jour - auj) / 86400000);
+    if (ecart === 0) return 'aujourd\'hui';
+    if (ecart === 1) return 'demain';
+    return jour.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+/** Moment compact sur deux lignes : { jour: "aujourd'hui" | "hier" | "1 oct.", heure: "11:26" }. */
+function momentCourt(iso) {
+    const d = new Date(iso), auj = new Date();
+    const hier = new Date(); hier.setDate(auj.getDate() - 1);
+    const memeJour = (a, b) => a.toDateString() === b.toDateString();
+    return {
+        jour: memeJour(d, auj) ? 'auj.' : memeJour(d, hier) ? 'hier' : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+        heure: d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    };
+}

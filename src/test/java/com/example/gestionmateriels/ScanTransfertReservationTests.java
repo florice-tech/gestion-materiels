@@ -186,4 +186,55 @@ class ScanTransfertReservationTests {
     void codeInconnu() {
         assertThrows(OperationException.class, () -> scanService.situation("XXX-99", session(pascal)));
     }
+
+    // ---------------------------------------------------------------------
+    // Un QR code pour chaque matériel, fournitures comprises
+    // ---------------------------------------------------------------------
+
+    @Autowired private MaterielService materielService;
+    @Autowired private CategorieRepository categorieRepository;
+    @Autowired private StatistiqueService statistiqueService;
+
+    @Test
+    void chaqueMaterielRecoitUnCode() {
+        assertTrue(materielRepository.findAll().stream().allMatch(m -> m.getCodeUnique() != null && !m.getCodeUnique().isBlank()));
+        Long fournitures = categorieRepository.findByNomIgnoreCase("FOURNITURES").orElseThrow().getId();
+        Materiel craie = materielService.creerMateriel(new com.example.gestionmateriels.dto.MaterielRequest(
+                "Craie blanche (boîte)", fournitures, Materiel.TypeGestion.CONSOMMABLE, null, 10, 2));
+        assertEquals("CRA-01", craie.getCodeUnique());
+        Materiel craie2 = materielService.creerMateriel(new com.example.gestionmateriels.dto.MaterielRequest(
+                "Craie de couleur", fournitures, Materiel.TypeGestion.CONSOMMABLE, " ", 10, 2));
+        assertEquals("CRA-02", craie2.getCodeUnique());
+        Materiel ecran = materielService.creerMateriel(new com.example.gestionmateriels.dto.MaterielRequest(
+                "Écran de projection", fournitures, Materiel.TypeGestion.DURABLE, null, null, null));
+        assertEquals("ECR-01", ecran.getCodeUnique());
+        assertThrows(OperationException.class, () -> materielService.creerMateriel(new com.example.gestionmateriels.dto.MaterielRequest(
+                "Autre", fournitures, Materiel.TypeGestion.DURABLE, "mic-01", null, null)));
+        assertThrows(OperationException.class, () -> materielService.creerMateriel(new com.example.gestionmateriels.dto.MaterielRequest(
+                "Autre", fournitures, Materiel.TypeGestion.DURABLE, "A/B", null, null)));
+    }
+
+    @Test
+    void scannerUneFournitureEnvoieUneDemandeAuPoste() {
+        Materiel marqueur = materielRepository.findByCodeUniqueIgnoreCase("MAR-01").orElseThrow();
+        assertEquals(ScanService.Action.DEMANDER_FOURNITURE, scanService.situation("MAR-01", session(awa)).action());
+        assertThrows(OperationException.class, () -> scanService.recuperer("MAR-01", awa.getId(), "101", TARD));
+        assertThrows(OperationException.class, () -> scanService.demanderFourniture("MAR-01", awa.getId(), "101", 0));
+
+        int avant = marqueur.getQuantiteStock();
+        Emprunt e = scanService.demanderFourniture("MAR-01", awa.getId(), "101", 3);
+        assertEquals(StatutEmprunt.EN_ATTENTE, e.getStatutEmprunt());
+        assertEquals(avant - 3, marqueur.getQuantiteStock());
+    }
+
+    @Test
+    void leTableauDeBordMontreQuiAQuoi() {
+        scanService.recuperer("MIC-01", pascal.getId(), "101", TARD);
+        StatistiqueService.TableauDeBord t = statistiqueService.tableauDeBord(false);
+        assertEquals(1, t.compteurs().materielsSortis());
+        assertEquals("Pascal Kodjo", t.enCirculation().get(0).delegue());
+        assertTrue(t.activiteRecente().stream().anyMatch(ev -> ev.type().equals("SCAN")));
+        assertNull(t.administration());
+        assertNotNull(statistiqueService.tableauDeBord(true).administration());
+    }
 }

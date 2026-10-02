@@ -12,65 +12,184 @@
 <body class="bg-slate-100 font-sans min-h-screen">
     <div id="entete"></div>
 
-    <main class="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
+    <main class="max-w-5xl mx-auto p-4 md:p-6 space-y-6">
         <div>
             <h1 id="bienvenue" class="text-2xl md:text-3xl text-slate-800">Bonjour</h1>
-            <p class="text-sm text-slate-500">Demandez du matériel en ligne, puis récupérez-le au poste de surveillance.</p>
+            <p id="phrase" class="text-sm text-slate-500 mt-1"></p>
         </div>
 
-        <section id="resume" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></section>
+        <!-- Demandes de transfert reçues : à traiter tout de suite -->
+        <section id="zoneTransferts" class="hidden space-y-2" aria-live="polite"></section>
+        <div id="messageZone" class="hidden"></div>
 
-        <a href="scan.html" class="flex items-center gap-4 p-5 rounded-xl text-white shadow-sm" style="background:var(--lbs-marine)">
+        <a href="scan.html" class="carte-scan flex items-center gap-4 p-5 rounded-xl text-white shadow-sm" style="text-decoration:none">
             <span id="iconeScan" class="w-12 h-12 rounded-xl grid place-items-center shrink-0" style="background:rgba(255,255,255,.12)"></span>
-            <span><span class="block text-lg font-semibold">Scanner un matériel</span>
+            <span class="min-w-0 flex-1"><span class="block text-lg font-semibold">Scanner un matériel</span>
             <span class="block text-sm" style="color:#c9d6ea">Pour le récupérer, le rendre ou demander à quelqu'un de vous le passer.</span></span>
         </a>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <a href="demande-emprunt.html" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-blue-300 transition group">
-                <h2 class="font-semibold text-slate-800 group-hover:text-blue-700">Demander du matériel</h2>
-                <p class="text-sm text-slate-500 mt-1">Pour aujourd'hui, à retirer au poste.</p>
-            </a>
-            <a href="reservation.html" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-blue-300 transition group">
-                <h2 class="font-semibold text-slate-800 group-hover:text-blue-700">Réserver à l'avance</h2>
-                <p class="text-sm text-slate-500 mt-1">Choisir un jour et un créneau.</p>
-            </a>
-            <a href="mes-emprunts.html" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-blue-300 transition group">
-                <h2 class="font-semibold text-slate-800 group-hover:text-blue-700">Mes emprunts</h2>
-                <p class="text-sm text-slate-500 mt-1">Suivre, rendre, répondre aux transferts.</p>
-            </a>
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <!-- En ce moment -->
+            <section class="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-sm">
+                <div class="flex items-center justify-between px-5 pt-5 pb-3">
+                    <h2 class="font-semibold text-slate-800 text-lg">Sous ma responsabilité</h2>
+                    <a href="mes-emprunts.html" class="text-sm text-blue-600">Mes emprunts</a>
+                </div>
+                <div id="enMain" class="px-5 pb-5 space-y-2"></div>
+            </section>
+
+            <!-- À venir -->
+            <section class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm">
+                <div class="flex items-center justify-between px-5 pt-5 pb-3">
+                    <h2 class="font-semibold text-slate-800 text-lg">À venir</h2>
+                    <a href="reservation.html" class="text-sm text-blue-600">Réserver</a>
+                </div>
+                <div id="aVenir" class="px-5 pb-5 space-y-2"></div>
+            </section>
         </div>
 
-        <section class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-900 space-y-1">
-            <p class="font-semibold">Comment ça marche ?</p>
-            <p>1. Scannez le QR code collé sur le matériel avec votre téléphone.</p>
-            <p>2. S'il est libre, récupérez-le ; si quelqu'un l'a, demandez-lui de vous le passer.</p>
-            <p>3. Après le cours, scannez-le à nouveau pour le rendre, ou rapportez-le au poste.</p>
+        <!-- Disponible maintenant -->
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+            <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+                <h2 class="font-semibold text-slate-800 text-lg">Disponible maintenant</h2>
+                <span id="compteDispo" class="text-sm text-slate-500"></span>
+            </div>
+            <div id="dispo" class="flex flex-wrap gap-2"></div>
+            <p class="text-xs text-slate-500 mt-3">Touchez un matériel pour le récupérer, ou faites une <a href="demande-emprunt.html" class="text-blue-600">demande au poste</a>.</p>
+        </section>
+
+        <section id="commentFaire" class="hidden bg-blue-50 border border-blue-200 rounded-xl p-5 text-sm text-blue-900">
+            <h2 class="font-semibold mb-2">Premier emprunt ? Voici comment faire</h2>
+            <ol class="space-y-1.5 list-decimal pl-5">
+                <li>Scannez le QR code collé sur le matériel avec votre téléphone.</li>
+                <li>S'il est libre, récupérez-le ; si quelqu'un l'a, demandez-lui de vous le passer.</li>
+                <li>Après le cours, scannez-le à nouveau pour le rendre, ou rapportez-le au poste.</li>
+            </ol>
         </section>
     </main>
 
     <script>
+        let moi = null, emprunts = [];
+
         document.addEventListener('DOMContentLoaded', async () => {
-            const moi = await initPage({ type: 'DELEGUE', page: 'accueil' });
-            document.getElementById('bienvenue').textContent = `Bonjour, ${moi.nom}`;
+            moi = await initPage({ type: 'DELEGUE', page: 'accueil' });
+            const prenom = moi.nom.split(/\s+/)[0];
+            document.getElementById('bienvenue').textContent = `${new Date().getHours() < 18 ? 'Bonjour' : 'Bonsoir'}, ${prenom}`;
             document.getElementById('iconeScan').innerHTML = icone('scan', 'w-7 h-7');
-
-            const resultat = await appelApi('/emprunts/mes-emprunts');
-            const emprunts = resultat.success ? resultat.data : [];
-            const enAttente = emprunts.filter(e => e.statutEmprunt === 'EN_ATTENTE' || e.statutEmprunt === 'RESERVEE').length;
-            const enCours = emprunts.filter(e => e.statutEmprunt === 'EN_COURS').length;
-            const enRetard = emprunts.filter(e => e.enRetard).length;
-
-            const tuile = (libelle, valeur, alerte) => `
-                <a href="mes-emprunts.html" class="bg-white p-4 rounded-xl border ${alerte ? 'border-red-300 bg-red-50' : 'border-slate-200'} shadow-sm block">
-                    <div class="text-xs font-medium text-slate-500">${libelle}</div>
-                    <div class="text-3xl font-bold mt-1 ${alerte ? 'text-red-700' : 'text-slate-800'}">${valeur}</div>
-                </a>`;
-            document.getElementById('resume').innerHTML =
-                tuile('Demandes et réservations', enAttente, false) +
-                tuile('Matériel en ma possession', enCours, false) +
-                tuile('En retard', enRetard, enRetard > 0);
+            charger();
+            setInterval(charger, 30000);
         });
+
+        async function charger() {
+            const [resultat, transferts, materiels] = await Promise.all([
+                appelApi('/emprunts/mes-emprunts'), appelApi('/transferts'), appelApi('/materiels')]);
+            emprunts = resultat.success ? resultat.data : [];
+            afficherTransferts(transferts.success ? transferts.recus.filter(t => t.statut === 'EN_ATTENTE') : []);
+            const enMain = lignesEnMain();
+            afficherPhrase(enMain);
+            afficherEnMain(enMain);
+            afficherAVenir();
+            afficherDisponibles(Array.isArray(materiels) ? materiels : []);
+            document.getElementById('commentFaire').classList.toggle('hidden', emprunts.length > 0);
+        }
+
+        /** Chaque matériel durable encore entre mes mains, avec son échéance. */
+        function lignesEnMain() {
+            return emprunts.filter(e => e.statutEmprunt === 'EN_COURS').flatMap(e =>
+                e.details.filter(d => d.materiel.typeGestion === 'DURABLE' && !d.rendu).map(d => ({ emprunt: e, materiel: d.materiel })));
+        }
+
+        function afficherPhrase(enMain) {
+            const retards = enMain.filter(l => l.emprunt.enRetard).length;
+            let phrase;
+            if (retards) phrase = `${pluriel(retards, 'matériel est', 'matériels sont')} en retard : rapportez-${retards > 1 ? 'les' : 'le'} au plus vite.`;
+            else if (enMain.length) {
+                const prochaine = enMain.map(l => l.emprunt.echeance).filter(Boolean).sort()[0];
+                phrase = `Vous avez ${pluriel(enMain.length, 'matériel')} en main${prochaine ? `, à rendre ${tempsRestant(prochaine).texte}` : ''}.`;
+            } else phrase = 'Vous n\'avez aucun matériel en main pour le moment.';
+            document.getElementById('phrase').textContent = phrase;
+        }
+
+        function afficherTransferts(recus) {
+            const zone = document.getElementById('zoneTransferts');
+            zone.classList.toggle('hidden', !recus.length);
+            zone.innerHTML = recus.map(t => `
+                <div class="bg-white border-2 rounded-xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-center gap-3" style="border-color:#d99a2b">
+                    <p class="text-sm text-slate-800 flex-1"><strong>${echapper(t.demandeur.nom)}</strong> vous demande <strong>${echapper(t.materiel.designation)}</strong>
+                        pour la salle ${echapper(t.salle)}<span class="text-slate-500"> · ${formaterDepuis(t.dateDemande)}</span></p>
+                    <div class="flex gap-2 shrink-0">
+                        <button data-refuser="${t.id}" class="flex-1 sm:flex-none px-3 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">J'en ai encore besoin</button>
+                        <button data-accepter="${t.id}" class="flex-1 sm:flex-none px-3 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700">Je lui passe</button>
+                    </div>
+                </div>`).join('');
+            zone.querySelectorAll('[data-accepter]').forEach(b => b.addEventListener('click', () => repondre(b.dataset.accepter, 'accepter')));
+            zone.querySelectorAll('[data-refuser]').forEach(b => b.addEventListener('click', () => repondre(b.dataset.refuser, 'refuser')));
+        }
+
+        async function repondre(id, action) {
+            const r = await appelApi(`/transferts/${id}/${action}`, { method: 'POST' });
+            afficherMessage('messageZone', r.message, r.success);
+            charger();
+            chargerNotifications();
+        }
+
+        function afficherEnMain(lignes) {
+            const zone = document.getElementById('enMain');
+            if (!lignes.length) {
+                zone.innerHTML = `<div class="text-center py-6 space-y-3"><p class="text-sm text-slate-500">Rien en ce moment. Scannez un matériel libre pour l'emprunter.</p>
+                    <a href="scan.html" class="inline-block text-sm font-medium px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50" style="text-decoration:none">Scanner</a></div>`;
+                return;
+            }
+            zone.innerHTML = lignes.map(({ emprunt: e, materiel: m }) => {
+                const r = tempsRestant(e.echeance);
+                const retard = e.enRetard || r.retard;
+                return `<div class="flex items-center gap-3 p-3 rounded-lg border ${retard ? 'border-red-200 bg-red-50' : r.bientot ? 'border-amber-200 bg-amber-50' : 'border-slate-200'}">
+                    <div class="min-w-0 flex-1">
+                        <div class="font-semibold text-slate-800 truncate">${echapper(m.designation)} <span class="text-xs font-normal text-slate-500">${echapper(m.codeUnique)}</span></div>
+                        <div class="text-xs ${retard ? 'text-red-700 font-semibold' : r.bientot ? 'text-amber-800 font-medium' : 'text-slate-500'}">
+                            Salle ${echapper(e.salle)}${e.heureRetourPrevue ? ` · à rendre avant ${formaterHeure(e.heureRetourPrevue)}` : ''}${r.texte ? ` (${retard && !r.retard ? 'en retard' : r.texte})` : ''}</div>
+                    </div>
+                    <a href="scan.html?code=${encodeURIComponent(m.codeUnique)}" class="shrink-0 text-sm font-semibold px-3 py-2 rounded-lg ${retard ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-blue-600 text-white hover:bg-blue-700'}" style="text-decoration:none">Rendre</a>
+                </div>`;
+            }).join('');
+        }
+
+        function afficherAVenir() {
+            const zone = document.getElementById('aVenir');
+            const liste = emprunts.filter(e => e.statutEmprunt === 'EN_ATTENTE' || e.statutEmprunt === 'RESERVEE')
+                .sort((a, b) => (a.dateReservation || '0').localeCompare(b.dateReservation || '0') || (a.heureDebut || '').localeCompare(b.heureDebut || ''));
+            if (!liste.length) {
+                zone.innerHTML = `<div class="text-center py-6 space-y-3"><p class="text-sm text-slate-500">Aucune demande ni réservation en cours.</p>
+                    <a href="reservation.html" class="inline-block text-sm font-medium px-4 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50" style="text-decoration:none">Réserver pour un cours</a></div>`;
+                return;
+            }
+            zone.innerHTML = liste.map(e => {
+                const reservee = e.statutEmprunt === 'RESERVEE';
+                const quand = reservee
+                    ? `${formaterJourReservation(e.dateReservation)}, ${formaterHeure(e.heureDebut)}–${formaterHeure(e.heureRetourPrevue)}`
+                    : 'À retirer au poste de surveillance';
+                return `<a href="mes-emprunts.html" class="block p-3 rounded-lg border border-slate-200 hover:border-blue-300" style="text-decoration:none">
+                    <div class="flex items-start justify-between gap-2">
+                        <span class="text-sm font-semibold text-slate-800 first-letter:uppercase">${echapper(quand)}</span>
+                        ${badge(statutFiche(e))}
+                    </div>
+                    <div class="text-xs text-slate-600 mt-1">${echapper(resumeArticles(e.details))} · salle ${echapper(e.salle)}</div>
+                </a>`;
+            }).join('');
+        }
+
+        function afficherDisponibles(materiels) {
+            const libres = materiels.filter(m => m.typeGestion === 'DURABLE' && m.statut === 'DISPONIBLE');
+            document.getElementById('compteDispo').textContent = libres.length
+                ? `${pluriel(libres.length, 'équipement libre', 'équipements libres')}` : '';
+            const zone = document.getElementById('dispo');
+            if (!libres.length) { zone.innerHTML = '<p class="text-sm text-slate-500">Tout le matériel est sorti pour le moment. Réservez à l\'avance pour être sûr d\'en avoir.</p>'; return; }
+            zone.innerHTML = libres.map(m => `
+                <a href="scan.html?code=${encodeURIComponent(m.codeUnique)}" class="puce-dispo inline-flex items-center gap-2 pl-2.5 pr-3 py-1.5 rounded-full border border-slate-200 text-sm text-slate-700 hover:border-blue-300" style="text-decoration:none">
+                    <span class="w-2 h-2 rounded-full" style="background:#1f7a4d" aria-hidden="true"></span>${echapper(m.designation)}
+                    <span class="text-xs text-slate-400">${echapper(m.codeUnique)}</span>
+                </a>`).join('');
+        }
     </script>
 </body>
 </html>

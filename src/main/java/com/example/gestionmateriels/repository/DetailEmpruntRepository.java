@@ -26,6 +26,19 @@ public interface DetailEmpruntRepository extends JpaRepository<DetailEmprunt, Lo
             """)
     List<DetailEmprunt> lignesEnMain(@Param("materielId") Long materielId);
 
+    /** Tout le matériel durable sorti en ce moment (qui a quoi), le plus ancien d'abord. */
+    @Query("""
+            select d from DetailEmprunt d
+            where d.dateRetour is null
+              and d.materiel.typeGestion = com.example.gestionmateriels.model.Materiel.TypeGestion.DURABLE
+              and d.emprunt.statutEmprunt = com.example.gestionmateriels.model.Emprunt.StatutEmprunt.EN_COURS
+            order by d.emprunt.dateSortie asc
+            """)
+    List<DetailEmprunt> toutesLignesEnMain();
+
+    /** Articles rendus depuis une date (pour le fil d'activité). */
+    List<DetailEmprunt> findByDateRetourGreaterThanEqualOrderByDateRetourDesc(java.time.LocalDateTime depuis);
+
     /** Toutes les lignes d'un matériel, pour retracer son parcours. */
     @Query("""
             select d from DetailEmprunt d

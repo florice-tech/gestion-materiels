@@ -4,6 +4,7 @@ import com.example.gestionmateriels.model.*;
 import com.example.gestionmateriels.model.Materiel.StatutMateriel;
 import com.example.gestionmateriels.model.Materiel.TypeGestion;
 import com.example.gestionmateriels.repository.*;
+import com.example.gestionmateriels.service.MaterielService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
@@ -15,7 +16,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Au démarrage :
  * 1. hache avec BCrypt les mots de passe encore stockés en clair (bases créées par l'ancienne version) ;
- * 2. insère des données de démonstration dans les tables vides.
+ * 2. insère des données de démonstration dans les tables vides ;
+ * 3. donne un code (donc un QR code) à chaque matériel qui n'en a pas.
  */
 @Configuration
 public class DataInitializer {
@@ -25,7 +27,7 @@ public class DataInitializer {
     @Bean
     CommandLineRunner initData(AgentRepository agentRepo, DelegueRepository delegueRepo,
                                CategorieRepository categorieRepo, MaterielRepository materielRepo,
-                               SalleRepository salleRepo, PasswordEncoder encoder,
+                               SalleRepository salleRepo, PasswordEncoder encoder, MaterielService materielService,
                                TransactionTemplate transaction) {
         return args -> transaction.executeWithoutResult(statut -> {
             hacherMotsDePasseEnClair(agentRepo, delegueRepo, encoder);
@@ -68,9 +70,14 @@ public class DataInitializer {
                 materielRepo.save(new Materiel("Câble HDMI", connectique,
                         TypeGestion.DURABLE, "HDMI-01", StatutMateriel.DISPONIBLE, 1));
                 materielRepo.save(new Materiel("Marqueur Noir", fournitures,
-                        TypeGestion.CONSOMMABLE, null, StatutMateriel.DISPONIBLE, 20));
+                        TypeGestion.CONSOMMABLE, "MAR-01", StatutMateriel.DISPONIBLE, 20));
                 materielRepo.save(new Materiel("Effaceur", fournitures,
-                        TypeGestion.CONSOMMABLE, null, StatutMateriel.DISPONIBLE, 5));
+                        TypeGestion.CONSOMMABLE, "EFF-01", StatutMateriel.DISPONIBLE, 5));
+            }
+
+            int codes = materielService.attribuerCodesManquants();
+            if (codes > 0) {
+                LOG.info("{} matériel(s) sans code ont reçu un code pour leur QR code.", codes);
             }
         });
     }

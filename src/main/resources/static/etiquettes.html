@@ -28,7 +28,7 @@
         <div class="flex flex-wrap items-end justify-between gap-3 pas-impression">
             <div>
                 <h1 class="text-2xl md:text-3xl text-slate-800">Étiquettes QR</h1>
-                <p class="text-sm text-slate-500 mt-1">Imprimez les étiquettes et collez-les sur chaque équipement. Un scan ouvre la fiche du matériel dans l'application.</p>
+                <p class="text-sm text-slate-500 mt-1">Imprimez les étiquettes et collez-les sur chaque équipement. Chaque matériel, fournitures comprises, a son QR code : un scan ouvre la bonne action dans l'application.</p>
             </div>
             <button id="btnImprimer" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg">Imprimer la sélection</button>
         </div>
@@ -38,6 +38,9 @@
         <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-wrap items-center gap-3 pas-impression">
             <input id="filtre" type="search" placeholder="Rechercher un matériel ou un code..." class="flex-1 min-w-[200px] px-3 py-2 border border-slate-300 rounded-lg text-sm">
             <label class="flex items-center gap-2 text-sm text-slate-700"><input id="toutCocher" type="checkbox" checked class="w-4 h-4"> Tout sélectionner</label>
+            <select id="filtreType" class="px-3 py-2 border border-slate-300 rounded-lg text-sm" aria-label="Type">
+                <option value="">Tout le matériel</option><option value="DURABLE">Matériel durable</option><option value="CONSOMMABLE">Fournitures</option>
+            </select>
             <span id="compte" class="text-sm text-slate-500"></span>
         </section>
 
@@ -57,9 +60,13 @@
                     Ouvrez cette page avec l'adresse réseau du serveur (par exemple http://192.168.1.20:8080) ou définissez la variable <code>APP_URL</code> avant d'imprimer.`;
                 av.classList.remove('hidden');
             }
-            materiels = (await appelApi('/materiels')).filter(m => m.typeGestion === 'DURABLE' && m.codeUnique);
+            materiels = (await appelApi('/materiels')).filter(m => m.codeUnique);
+            // ?code=VP-01 : seule cette étiquette est sélectionnée
+            const seul = new URLSearchParams(location.search).get('code');
+            if (seul) document.getElementById('filtre').value = seul;
             afficher();
             document.getElementById('filtre').addEventListener('input', afficher);
+            document.getElementById('filtreType').addEventListener('change', afficher);
             document.getElementById('toutCocher').addEventListener('change', e => {
                 document.querySelectorAll('.choix').forEach(c => { c.checked = e.target.checked; c.dispatchEvent(new Event('change')); });
             });
@@ -68,10 +75,12 @@
 
         function afficher() {
             const texte = document.getElementById('filtre').value.toLowerCase().trim();
-            const liste = materiels.filter(m => !texte || `${m.designation} ${m.codeUnique}`.toLowerCase().includes(texte));
+            const type = document.getElementById('filtreType').value;
+            const liste = materiels.filter(m => (!texte || `${m.designation} ${m.codeUnique}`.toLowerCase().includes(texte))
+                && (!type || m.typeGestion === type));
             const grille = document.getElementById('grille');
-            document.getElementById('compte').textContent = `${liste.length} étiquette(s)`;
-            if (!liste.length) { grille.innerHTML = `<div class="col-span-full bg-white rounded-xl border border-slate-200">${etatVide('Aucun matériel durable avec un code. Ajoutez-en depuis le catalogue.')}</div>`; return; }
+            document.getElementById('compte').textContent = pluriel(liste.length, 'étiquette');
+            if (!liste.length) { grille.innerHTML = `<div class="col-span-full bg-white rounded-xl border border-slate-200">${etatVide('Aucun matériel ne correspond. Ajoutez du matériel depuis le catalogue.')}</div>`; return; }
             grille.innerHTML = liste.map(m => `
                 <article class="etiquette bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex flex-col gap-2">
                     <label class="flex items-center gap-2 text-xs text-slate-500 pas-impression"><input type="checkbox" class="choix w-4 h-4" checked> Imprimer</label>
@@ -83,7 +92,7 @@
                     <div class="text-center leading-tight">
                         <div class="font-semibold text-slate-800 text-sm">${echapper(m.designation)}</div>
                         <div class="text-lg font-bold tracking-wider text-slate-800">${echapper(m.codeUnique)}</div>
-                        <div class="text-[11px] text-slate-500">Scannez pour emprunter ou rendre</div>
+                        <div class="text-[11px] text-slate-500">${m.typeGestion === 'DURABLE' ? 'Scannez pour emprunter ou rendre' : 'Scannez pour en demander au poste'}</div>
                     </div>
                 </article>`).join('');
             grille.querySelectorAll('.qr').forEach(div => {
