@@ -108,7 +108,7 @@ function construireEntete(moi, pageActive) {
             <div class="max-w-7xl mx-auto px-4 md:px-6">
                 <div class="flex items-center justify-between gap-3 py-3">
                     <a href="${NAVIGATION[moi.type][0].lien}" class="flex items-center gap-2 font-bold text-lg shrink-0">
-                        <span class="bg-white text-blue-600 rounded-lg w-8 h-8 grid place-items-center text-sm">GM</span>
+                        ${logoHtml('h-9')}
                         <span class="hidden sm:inline">Gestion Matériel</span>
                     </a>
                     <div class="flex items-center gap-3 min-w-0">
@@ -128,6 +128,17 @@ function construireEntete(moi, pageActive) {
 async function seDeconnecter() {
     await appelApi('/auth/logout', { method: 'POST', sansRedirection: true });
     window.location.href = 'login.html';
+}
+
+/**
+ * Logo de l'école (img/logo-lbs.png), sur fond blanc pour rester lisible sur l'en-tête bleu.
+ * Si le fichier est absent, un badge « LBS » le remplace.
+ */
+function logoHtml(hauteur) {
+    return `<span class="bg-white rounded-lg px-1.5 py-1 inline-flex items-center shrink-0">
+        <img src="img/logo-lbs.png" alt="Lomé Business School" class="${hauteur} w-auto"
+             onerror="this.replaceWith(Object.assign(document.createElement('span'), {className: 'text-blue-700 font-bold text-sm px-1', textContent: 'LBS'}))">
+    </span>`;
 }
 
 // ---------------------------------------------------------------------------

@@ -11,8 +11,9 @@
 
     <div class="max-w-md w-full bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
         <div class="bg-blue-600 px-6 py-6 text-white text-center">
-            <div class="mx-auto bg-white text-blue-600 rounded-xl w-12 h-12 grid place-items-center font-bold text-lg mb-2">GM</div>
+            <div id="logo" class="flex justify-center mb-3"></div>
             <h1 class="text-xl font-bold">Gestion des Emprunts de Matériel</h1>
+            <p class="text-blue-100 text-xs uppercase tracking-wider mt-1">Lomé Business School</p>
             <p class="text-blue-100 text-sm mt-1">Agents de surveillance et délégués</p>
         </div>
 
@@ -39,6 +40,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('logo').innerHTML = logoHtml('h-14');
             if (new URLSearchParams(location.search).has('expire')) {
                 afficherMessage('messageZone', 'Votre session a expiré, veuillez vous reconnecter.', false);
             }
