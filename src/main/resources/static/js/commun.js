@@ -2,6 +2,17 @@
 
 const API_BASE = '/api';
 
+// Couleurs de Lomé Business School : la palette « blue » de Tailwind est remplacée par le bleu marine du logo,
+// ce qui applique la charte à toutes les pages sans toucher à leurs classes.
+if (window.tailwind) {
+    window.tailwind.config = {
+        theme: { extend: { colors: { blue: {
+            50: '#eef3f9', 100: '#d9e3f0', 200: '#b6c8e0', 300: '#8aa6cb', 400: '#5d82b2',
+            500: '#3a6296', 600: '#24436f', 700: '#1c3659', 800: '#152945', 900: '#0f1d31'
+        }, lbs: { rouge: '#a3141c' } } } }
+    };
+}
+
 // ---------------------------------------------------------------------------
 // Appels à l'API
 // ---------------------------------------------------------------------------

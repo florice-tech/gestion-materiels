@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="img/logo-lbs-icone.png">
     <title>Créer un compte - Gestion Matériel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="js/commun.js"></script>
@@ -11,6 +12,7 @@
 
     <div class="max-w-md w-full bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
         <div class="bg-blue-600 px-6 py-5 text-white text-center">
+            <div id="logo" class="flex justify-center mb-3"></div>
             <h1 class="text-xl font-bold">Créer un compte délégué</h1>
             <p class="text-blue-100 text-sm mt-1">Pour demander des emprunts de matériel</p>
         </div>
@@ -58,6 +60,7 @@
     </div>
 
     <script>
+        document.getElementById('logo').innerHTML = logoHtml('h-12');
         document.getElementById('formInscription').addEventListener('submit', async (e) => {
             e.preventDefault();
             const motDePasse = document.getElementById('motDePasse').value;
