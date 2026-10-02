@@ -7,6 +7,7 @@
     <title>Demandes en attente - Gestion Matériel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="js/commun.js"></script>
+    <link rel="stylesheet" href="css/theme.css">
 </head>
 <body class="bg-slate-100 font-sans min-h-screen">
     <div id="entete"></div>
@@ -14,22 +15,27 @@
     <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         <div class="flex flex-wrap items-end justify-between gap-2">
             <div>
-                <h1 class="text-2xl font-bold text-slate-800">Demandes en attente</h1>
+                <h1 class="text-2xl md:text-3xl text-slate-800">Demandes et réservations</h1>
                 <p class="text-sm text-slate-500">Vérifiez la demande, remettez le matériel puis validez. Un refus libère le matériel réservé.</p>
             </div>
             <button id="btnActualiser" class="text-sm text-blue-600 hover:underline font-medium">↻ Actualiser</button>
         </div>
 
         <div id="messageZone" class="hidden"></div>
+        <h2 class="font-semibold text-slate-800 text-lg">Demandes à remettre</h2>
         <div id="listeDemandes" class="space-y-3"></div>
+        <h2 class="font-semibold text-slate-800 text-lg pt-4">Réservations à venir</h2>
+        <p class="text-sm text-slate-500 -mt-3">Le jour prévu, remettez le matériel ici ou laissez le délégué le retirer en scannant.</p>
+        <div id="listeReservations" class="space-y-3"></div>
     </main>
 
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             await initPage({ type: 'AGENT', page: 'demandes' });
-            document.getElementById('btnActualiser').addEventListener('click', chargerDemandes);
+            document.getElementById('btnActualiser').addEventListener('click', () => { chargerDemandes(); chargerReservations(); });
             chargerDemandes();
-            setInterval(chargerDemandes, 30000);
+            chargerReservations();
+            setInterval(() => { chargerDemandes(); chargerReservations(); }, 30000);
         });
 
         async function chargerDemandes() {
@@ -69,11 +75,41 @@
             });
         }
 
+        async function chargerReservations() {
+            const r = await appelApi('/emprunts/reservations');
+            const liste = r.success ? r.data : [];
+            const zone = document.getElementById('listeReservations');
+            if (!liste.length) { zone.innerHTML = `<div class="bg-white rounded-xl border border-slate-200">${etatVide('Aucune réservation à venir.')}</div>`; return; }
+            const aujourdHui = new Date().toISOString().substring(0, 10);
+            zone.innerHTML = '';
+            liste.forEach(d => {
+                const duJour = d.dateReservation <= aujourdHui;
+                const jour = new Date(d.dateReservation + 'T00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+                const carte = document.createElement('div');
+                carte.className = `bg-white border rounded-xl shadow-sm p-4 flex flex-col md:flex-row md:items-center gap-4 ${duJour ? 'border-blue-200' : 'border-slate-200'}`;
+                carte.innerHTML = `
+                    <div class="flex-1 space-y-1 text-sm">
+                        <div class="font-semibold text-slate-800 text-base">${echapper(d.delegue.nom)} <span class="text-sm font-normal text-slate-500">· ${echapper(d.delegue.filiereNiveau)}</span></div>
+                        <div class="text-sm ${duJour ? 'text-blue-700 font-medium' : 'text-slate-600'}">${duJour ? "Aujourd'hui" : jour}, de ${formaterHeure(d.heureDebut)} à ${formaterHeure(d.heureRetourPrevue)} · salle ${echapper(d.salle)}</div>
+                        <div class="text-sm text-slate-700 pt-1">${listeArticlesHtml(d)}</div>
+                    </div>
+                    <div class="flex gap-2 shrink-0">
+                        <button data-action="refuser" class="px-3 py-2 text-sm font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50">Refuser</button>
+                        ${duJour ? '<button data-action="valider" class="px-3 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700">Remettre le matériel</button>' : ''}
+                    </div>`;
+                const v = carte.querySelector('[data-action=valider]');
+                if (v) v.addEventListener('click', e => valider(d, e.target));
+                carte.querySelector('[data-action=refuser]').addEventListener('click', () => refuser(d));
+                zone.appendChild(carte);
+            });
+        }
+
         async function valider(demande, bouton) {
             bouton.disabled = true;
             const resultat = await appelApi(`/emprunts/${demande.id}/valider`, { method: 'POST' });
             afficherMessage('messageZone', resultat.message, resultat.success);
             chargerDemandes();
+            chargerReservations();
         }
 
         async function refuser(demande) {
@@ -88,6 +124,7 @@
             const resultat = await appelApi(`/emprunts/${demande.id}/refuser`, { method: 'POST', body: { motif: saisie.motif } });
             afficherMessage('messageZone', resultat.message, resultat.success);
             chargerDemandes();
+            chargerReservations();
         }
     </script>
 </body>

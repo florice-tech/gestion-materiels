@@ -7,79 +7,157 @@
     <title>Mes emprunts - Gestion Matériel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="js/commun.js"></script>
+    <link rel="stylesheet" href="css/theme.css">
 </head>
 <body class="bg-slate-100 font-sans min-h-screen">
     <div id="entete"></div>
 
     <main class="max-w-3xl mx-auto p-4 md:p-6 space-y-6">
-        <div class="flex flex-wrap justify-between items-end gap-2">
+        <div class="flex flex-wrap justify-between items-end gap-3">
             <div>
-                <h1 class="text-2xl font-bold text-slate-800">Mes emprunts</h1>
-                <p class="text-sm text-slate-500">Une demande en attente peut être annulée tant qu'elle n'a pas été validée.</p>
+                <h1 class="text-2xl md:text-3xl text-slate-800">Mes emprunts</h1>
+                <p class="text-sm text-slate-500 mt-1">Vos demandes, réservations et le matériel sous votre responsabilité.</p>
             </div>
-            <a href="demande-emprunt.html" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">+ Nouvelle demande</a>
+            <div class="flex gap-2">
+                <a href="reservation.html" class="border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-2 rounded-lg">Réserver</a>
+                <a href="demande-emprunt.html" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Demander du matériel</a>
+            </div>
         </div>
 
         <div id="messageZone" class="hidden"></div>
+
+        <!-- Demandes de transfert reçues : à traiter en premier -->
+        <section id="zoneRecus" class="hidden space-y-3"></section>
+
+        <section id="zoneEnvoyes" class="hidden space-y-2"></section>
+
         <div id="listeEmprunts" class="space-y-3"></div>
     </main>
 
     <script>
+        const MODES = { DEMANDE: 'Demande en ligne', SCAN: 'Scan du QR code', TRANSFERT: 'Transfert', RESERVATION: 'Réservation', AGENT: 'Au poste' };
+
         document.addEventListener('DOMContentLoaded', async () => {
             await initPage({ type: 'DELEGUE', page: 'mes-emprunts' });
             charger();
+            setInterval(chargerTransferts, 30000);
         });
 
         async function charger() {
+            chargerTransferts();
             const resultat = await appelApi('/emprunts/mes-emprunts');
             const emprunts = resultat.success ? resultat.data : [];
             const conteneur = document.getElementById('listeEmprunts');
 
             if (!emprunts.length) {
-                conteneur.innerHTML = `<div class="bg-white rounded-xl border border-slate-200">${etatVide('Aucune demande pour le moment.')}</div>`;
+                conteneur.innerHTML = `<div class="bg-white rounded-xl border border-slate-200 p-6 text-center space-y-3">
+                    <p class="text-slate-600">Vous n'avez encore rien emprunté.</p>
+                    <a href="scan.html" class="inline-block bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Scanner un matériel</a></div>`;
                 return;
             }
 
             conteneur.innerHTML = '';
             emprunts.forEach(e => {
                 const heure = formaterHeure(e.heureRetourPrevue);
-                let suivi = `Demandé le ${formaterDate(e.dateDemande)}`;
-                if (e.dateSortie) suivi += ` · remis le ${formaterDate(e.dateSortie)} par ${echapper(e.agentSortie?.nom || '—')}`;
-                if (e.dateRetour) suivi += ` · rendu le ${formaterDate(e.dateRetour)}`;
+                let titre = `Salle ${echapper(e.salle)}${heure ? ` · retour avant ${heure}` : ''}`;
+                let suivi = `${MODES[e.mode]} · demandé le ${formaterDate(e.dateDemande)}`;
+                if (e.statutEmprunt === 'RESERVEE') {
+                    titre = `Salle ${echapper(e.salle)} · ${new Date(e.dateReservation + 'T00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}, ${formaterHeure(e.heureDebut)}–${heure}`;
+                }
+                if (e.dateSortie) suivi += ` · sorti le ${formaterDate(e.dateSortie)}${e.agentSortie ? ` par ${echapper(e.agentSortie.nom)}` : ''}`;
+                if (e.transmisPar) suivi += ` · transmis par ${echapper(e.transmisPar)}`;
+                if (e.dateRetour) suivi += ` · terminé le ${formaterDate(e.dateRetour)}`;
 
                 let complement = '';
                 if (e.statutEmprunt === 'EN_ATTENTE') {
-                    complement = '<p class="text-xs text-amber-800">Passez au poste de surveillance pour récupérer le matériel.</p>';
+                    complement = '<p class="text-xs text-amber-800">Passez au poste de surveillance, ou scannez le matériel pour le retirer vous-même.</p>';
+                } else if (e.statutEmprunt === 'RESERVEE') {
+                    complement = '<p class="text-xs text-blue-700">Le jour venu, scannez le matériel ou passez au poste pour le retirer.</p>';
                 } else if (e.enRetard) {
-                    complement = `<p class="text-xs text-red-700 font-semibold">⚠ À rendre depuis le ${formaterDate(e.echeance)} : rapportez-le au plus vite.</p>`;
-                } else if (e.statutEmprunt === 'REFUSEE') {
-                    complement = `<p class="text-xs text-slate-600">Refusée${e.motifRefus ? ' : ' + echapper(e.motifRefus) : '.'}</p>`;
+                    complement = `<p class="text-xs text-red-700 font-semibold">À rendre depuis le ${formaterDate(e.echeance)} : rapportez-le au plus vite.</p>`;
+                } else if (e.statutEmprunt === 'REFUSEE' || (e.statutEmprunt === 'ANNULEE' && e.motifRefus)) {
+                    complement = `<p class="text-xs text-slate-600">${e.statutEmprunt === 'REFUSEE' ? 'Refusée' : 'Annulée'}${e.motifRefus ? ' : ' + echapper(e.motifRefus) : '.'}</p>`;
                 } else if (e.observations) {
                     complement = `<p class="text-xs text-slate-500">Remarque de l'agent : ${echapper(e.observations)}</p>`;
                 }
 
+                // Chaque article : rendu ou encore en main
+                const articles = e.details.map(d => {
+                    const qte = d.materiel.typeGestion === 'CONSOMMABLE' ? ` × ${d.quantite}` : '';
+                    let etat = '';
+                    if (d.materiel.typeGestion === 'DURABLE' && e.statutEmprunt === 'EN_COURS') {
+                        etat = d.rendu
+                            ? `<span class="text-xs text-green-700">${d.modeRetour === 'TRANSFERT' ? 'Transféré' : 'Rendu'}</span>`
+                            : `<a href="scan.html?code=${encodeURIComponent(d.materiel.codeUnique)}" class="text-xs font-semibold px-2.5 py-1 rounded-md border border-blue-200 text-blue-700 hover:bg-blue-50 no-underline" style="text-decoration:none">Rendre</a>`;
+                    }
+                    return `<div class="flex justify-between gap-3"><span>${echapper(d.materiel.designation)}${qte}</span>${etat}</div>`;
+                }).join('');
+
+                const peutAnnuler = e.statutEmprunt === 'EN_ATTENTE' || e.statutEmprunt === 'RESERVEE';
                 const carte = document.createElement('div');
-                carte.className = `bg-white border rounded-xl shadow-sm p-4 text-sm space-y-2 ${e.enRetard ? 'border-red-300' : 'border-slate-200'}`;
+                carte.className = `bg-white border rounded-xl shadow-sm p-4 text-sm space-y-3 ${e.enRetard ? 'border-red-300' : 'border-slate-200'}`;
                 carte.innerHTML = `
                     <div class="flex justify-between items-start gap-3">
-                        <div>
-                            <div class="font-semibold text-slate-800">Salle ${echapper(e.salle)}${heure ? ` · retour avant ${heure}` : ''}</div>
-                            <div class="text-xs text-slate-500">${suivi}</div>
+                        <div class="min-w-0">
+                            <div class="font-semibold text-slate-800">${titre}</div>
+                            <div class="text-xs text-slate-500 mt-0.5">${suivi}</div>
                         </div>
                         ${badge(statutFiche(e))}
                     </div>
-                    <div class="text-sm text-slate-700">${listeArticlesHtml(e)}</div>
+                    <div class="text-sm text-slate-700 space-y-1">${articles}</div>
                     ${complement}
-                    ${e.statutEmprunt === 'EN_ATTENTE' ? `<div class="flex justify-end">
-                        <button class="btn-annuler px-3 py-1.5 text-xs font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50">Annuler la demande</button></div>` : ''}`;
+                    <div class="flex justify-between items-center gap-2 pt-1">
+                        <a href="bon.html?id=${e.id}" class="text-xs text-blue-600 hover:underline">Bon d'emprunt</a>
+                        ${peutAnnuler ? `<button class="btn-annuler px-3 py-1.5 text-xs font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50">Annuler</button>` : ''}
+                    </div>`;
                 const btn = carte.querySelector('.btn-annuler');
                 if (btn) btn.addEventListener('click', () => annuler(e));
                 conteneur.appendChild(carte);
             });
         }
 
+        async function chargerTransferts() {
+            const t = await appelApi('/transferts');
+            if (!t.success) return;
+            const recus = t.recus.filter(x => x.statut === 'EN_ATTENTE');
+            const zoneRecus = document.getElementById('zoneRecus');
+            zoneRecus.classList.toggle('hidden', !recus.length);
+            zoneRecus.innerHTML = recus.length ? `<h2 class="font-semibold text-slate-800">On vous demande du matériel</h2>` + recus.map(x => `
+                <div class="bg-white border-2 rounded-xl shadow-sm p-4 text-sm space-y-3" style="border-color:#d99a2b">
+                    <p class="text-slate-800"><strong>${echapper(x.demandeur.nom)}</strong> <span class="text-slate-500">(${echapper(x.demandeur.filiereNiveau)})</span>
+                        souhaite récupérer <strong>${echapper(x.materiel.designation)}</strong> pour la salle ${echapper(x.salle)}${x.heureRetourPrevue ? `, jusqu'à ${formaterHeure(x.heureRetourPrevue)}` : ''}.</p>
+                    <p class="text-xs text-slate-500">Si vous acceptez, le matériel passe sous sa responsabilité et votre emprunt s'arrête pour cet article.</p>
+                    <div class="flex justify-end gap-2">
+                        <button data-refuser="${x.id}" class="px-3 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">J'en ai encore besoin</button>
+                        <button data-accepter="${x.id}" class="px-3 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700">Je lui passe</button>
+                    </div>
+                </div>`).join('') : '';
+            zoneRecus.querySelectorAll('[data-accepter]').forEach(b => b.addEventListener('click', () => repondre(b.dataset.accepter, 'accepter')));
+            zoneRecus.querySelectorAll('[data-refuser]').forEach(b => b.addEventListener('click', () => repondre(b.dataset.refuser, 'refuser')));
+
+            const envoyes = t.envoyes.slice(0, 5);
+            const LIB = { EN_ATTENTE: 'En attente de réponse', ACCEPTE: 'Accepté', REFUSE: 'Refusé', ANNULE: 'Annulé' };
+            const zoneEnvoyes = document.getElementById('zoneEnvoyes');
+            zoneEnvoyes.classList.toggle('hidden', !envoyes.length);
+            zoneEnvoyes.innerHTML = envoyes.length ? `<h2 class="font-semibold text-slate-800">Mes demandes de transfert</h2>` + envoyes.map(x => `
+                <div class="bg-white border border-slate-200 rounded-xl p-3 text-sm flex flex-wrap items-center justify-between gap-2">
+                    <span class="text-slate-700">${echapper(x.materiel.designation)} auprès de ${echapper(x.detenteur.nom)} <span class="text-xs text-slate-400">· ${formaterDepuis(x.dateDemande)}</span></span>
+                    <span class="flex items-center gap-3"><span class="text-xs ${x.statut === 'ACCEPTE' ? 'text-green-700' : x.statut === 'EN_ATTENTE' ? 'text-amber-800' : 'text-slate-500'}">${LIB[x.statut]}</span>
+                    ${x.statut === 'EN_ATTENTE' ? `<button data-annuler="${x.id}" class="text-xs text-red-600 hover:underline">Annuler</button>` : ''}</span>
+                </div>`).join('') : '';
+            zoneEnvoyes.querySelectorAll('[data-annuler]').forEach(b => b.addEventListener('click', () => repondre(b.dataset.annuler, 'annuler')));
+        }
+
+        async function repondre(id, action) {
+            const r = await appelApi(`/transferts/${id}/${action}`, { method: 'POST' });
+            afficherMessage('messageZone', r.message, r.success);
+            charger();
+            chargerNotifications();
+        }
+
         async function annuler(e) {
-            if (!await confirmer('Annuler la demande', `Annuler votre demande pour la salle ${e.salle} ?`, 'Annuler la demande', true)) return;
+            const quoi = e.statutEmprunt === 'RESERVEE' ? 'la réservation' : 'la demande';
+            if (!await confirmer(`Annuler ${quoi}`, `Annuler ${quoi} pour la salle ${e.salle} ?`, 'Annuler', true)) return;
             const resultat = await appelApi(`/emprunts/${e.id}/annuler`, { method: 'POST' });
             afficherMessage('messageZone', resultat.message, resultat.success);
             charger();

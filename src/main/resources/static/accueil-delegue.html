@@ -7,36 +7,45 @@
     <title>Mon espace - Gestion Matériel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="js/commun.js"></script>
+    <link rel="stylesheet" href="css/theme.css">
 </head>
 <body class="bg-slate-100 font-sans min-h-screen">
     <div id="entete"></div>
 
     <main class="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
         <div>
-            <h1 id="bienvenue" class="text-2xl font-bold text-slate-800">Bonjour</h1>
+            <h1 id="bienvenue" class="text-2xl md:text-3xl text-slate-800">Bonjour</h1>
             <p class="text-sm text-slate-500">Demandez du matériel en ligne, puis récupérez-le au poste de surveillance.</p>
         </div>
 
         <section id="resume" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></section>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <a href="demande-emprunt.html" class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition group">
-                <div class="text-3xl mb-2">📤</div>
-                <h2 class="font-bold text-slate-800 group-hover:text-blue-600">Nouvelle demande d'emprunt</h2>
-                <p class="text-sm text-slate-500 mt-1">Choisir la salle, l'heure de retour et le matériel.</p>
+        <a href="scan.html" class="flex items-center gap-4 p-5 rounded-xl text-white shadow-sm" style="background:var(--lbs-marine)">
+            <span id="iconeScan" class="w-12 h-12 rounded-xl grid place-items-center shrink-0" style="background:rgba(255,255,255,.12)"></span>
+            <span><span class="block text-lg font-semibold">Scanner un matériel</span>
+            <span class="block text-sm" style="color:#c9d6ea">Pour le récupérer, le rendre ou demander à quelqu'un de vous le passer.</span></span>
+        </a>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <a href="demande-emprunt.html" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-blue-300 transition group">
+                <h2 class="font-semibold text-slate-800 group-hover:text-blue-700">Demander du matériel</h2>
+                <p class="text-sm text-slate-500 mt-1">Pour aujourd'hui, à retirer au poste.</p>
             </a>
-            <a href="mes-emprunts.html" class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition group">
-                <div class="text-3xl mb-2">📋</div>
-                <h2 class="font-bold text-slate-800 group-hover:text-blue-600">Mes emprunts</h2>
-                <p class="text-sm text-slate-500 mt-1">Suivre mes demandes, annuler, consulter mon historique.</p>
+            <a href="reservation.html" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-blue-300 transition group">
+                <h2 class="font-semibold text-slate-800 group-hover:text-blue-700">Réserver à l'avance</h2>
+                <p class="text-sm text-slate-500 mt-1">Choisir un jour et un créneau.</p>
+            </a>
+            <a href="mes-emprunts.html" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-blue-300 transition group">
+                <h2 class="font-semibold text-slate-800 group-hover:text-blue-700">Mes emprunts</h2>
+                <p class="text-sm text-slate-500 mt-1">Suivre, rendre, répondre aux transferts.</p>
             </a>
         </div>
 
         <section class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-900 space-y-1">
             <p class="font-semibold">Comment ça marche ?</p>
-            <p>1. Envoyez votre demande : le matériel est réservé pour vous.</p>
-            <p>2. Passez au poste de surveillance : l'agent vous remet le matériel et valide.</p>
-            <p>3. Rapportez-le avant l'heure prévue : l'agent enregistre le retour.</p>
+            <p>1. Scannez le QR code collé sur le matériel avec votre téléphone.</p>
+            <p>2. S'il est libre, récupérez-le ; si quelqu'un l'a, demandez-lui de vous le passer.</p>
+            <p>3. Après le cours, scannez-le à nouveau pour le rendre, ou rapportez-le au poste.</p>
         </section>
     </main>
 
@@ -44,10 +53,11 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const moi = await initPage({ type: 'DELEGUE', page: 'accueil' });
             document.getElementById('bienvenue').textContent = `Bonjour, ${moi.nom}`;
+            document.getElementById('iconeScan').innerHTML = icone('scan', 'w-7 h-7');
 
             const resultat = await appelApi('/emprunts/mes-emprunts');
             const emprunts = resultat.success ? resultat.data : [];
-            const enAttente = emprunts.filter(e => e.statutEmprunt === 'EN_ATTENTE').length;
+            const enAttente = emprunts.filter(e => e.statutEmprunt === 'EN_ATTENTE' || e.statutEmprunt === 'RESERVEE').length;
             const enCours = emprunts.filter(e => e.statutEmprunt === 'EN_COURS').length;
             const enRetard = emprunts.filter(e => e.enRetard).length;
 
@@ -57,7 +67,7 @@
                     <div class="text-3xl font-bold mt-1 ${alerte ? 'text-red-700' : 'text-slate-800'}">${valeur}</div>
                 </a>`;
             document.getElementById('resume').innerHTML =
-                tuile('Demandes à récupérer', enAttente, false) +
+                tuile('Demandes et réservations', enAttente, false) +
                 tuile('Matériel en ma possession', enCours, false) +
                 tuile('En retard', enRetard, enRetard > 0);
         });

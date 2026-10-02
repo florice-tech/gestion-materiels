@@ -367,7 +367,7 @@ public class EmpruntService {
                 throw new OperationException("\"" + materiel.getDesignation() + "\" est réservé le "
                         + jour.format(JOUR) + " de " + autre.getHeureDebut().format(HEURE) + " à "
                         + autreFin.format(HEURE) + " par " + autre.getDelegue().getNom()
-                        + ". Choisissez une heure de retour plus tôt ou un autre matériel.");
+                        + ". Choisissez un autre créneau ou un autre matériel.");
             }
         }
         // Réservation pour aujourd'hui sur un matériel déjà sorti : il doit être rendu avant le début

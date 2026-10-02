@@ -2,6 +2,14 @@
 
 const API_BASE = '/api';
 
+// Mode sombre : choix enregistré, sinon réglage du système
+(function appliquerTheme() {
+    let choix = null;
+    try { choix = localStorage.getItem('theme'); } catch (e) { /* stockage indisponible */ }
+    const sombre = choix ? choix === 'sombre' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', sombre);
+})();
+
 // Couleurs de Lomé Business School : la palette « blue » de Tailwind est remplacée par le bleu marine du logo,
 // ce qui applique la charte à toutes les pages sans toucher à leurs classes.
 if (window.tailwind) {
@@ -63,39 +71,82 @@ async function appelApi(chemin, options = {}) {
 // Session et en-tête
 // ---------------------------------------------------------------------------
 
+// Icônes au trait (24×24), dessinées pour l'application
+const ICONES = {
+    tableau: '<path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-4H4zM14 8h6V4h-6z"/>',
+    demandes: '<path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="17" r="3"/>',
+    retours: '<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
+    scan: '<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 12h8"/>',
+    catalogue: '<path d="M21 8 12 3 3 8l9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
+    etiquettes: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/>',
+    historique: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/>',
+    parametres: '<path d="M4 21V14M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+    comptes: '<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M17 11a3 3 0 1 0 0-6M22 21a6 6 0 0 0-4-5.6"/>',
+    accueil: '<path d="m3 11 9-7 9 7"/><path d="M5 10v10h14V10"/>',
+    demande: '<path d="M12 5v14M5 12h14"/>',
+    reservation: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>',
+    emprunts: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+    cloche: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+    lune: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>',
+    soleil: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+    sortie: '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5M15 12H3"/>'
+};
+
+function icone(nom, classe = '') {
+    return `<svg class="${classe}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES[nom] || ''}</svg>`;
+}
+
+// Menus groupés par usage
 const NAVIGATION = {
     AGENT: [
-        { cle: 'tableau', texte: 'Tableau de bord', lien: 'accueil-agent.html' },
-        { cle: 'demandes', texte: 'Demandes', lien: 'emprunt.html' },
-        { cle: 'retours', texte: 'Retours', lien: 'retour.html' },
-        { cle: 'catalogue', texte: 'Catalogue', lien: 'materiel.html' },
-        { cle: 'historique', texte: 'Historique', lien: 'historique.html' },
-        { cle: 'parametres', texte: 'Salles & catégories', lien: 'parametres.html' },
-        { cle: 'comptes', texte: 'Comptes', lien: 'comptes.html', admin: true }
+        { groupe: 'Opérations', liens: [
+            { cle: 'tableau', texte: 'Tableau de bord', lien: 'accueil-agent.html', icone: 'tableau' },
+            { cle: 'demandes', texte: 'Demandes et réservations', lien: 'emprunt.html', icone: 'demandes' },
+            { cle: 'retours', texte: 'Retours', lien: 'retour.html', icone: 'retours' },
+            { cle: 'scan', texte: 'Scanner un matériel', lien: 'scan.html', icone: 'scan' }
+        ] },
+        { groupe: 'Matériel', liens: [
+            { cle: 'catalogue', texte: 'Catalogue', lien: 'materiel.html', icone: 'catalogue' },
+            { cle: 'etiquettes', texte: 'Étiquettes QR', lien: 'etiquettes.html', icone: 'etiquettes' },
+            { cle: 'historique', texte: 'Historique', lien: 'historique.html', icone: 'historique' }
+        ] },
+        { groupe: 'Administration', liens: [
+            { cle: 'parametres', texte: 'Salles et catégories', lien: 'parametres.html', icone: 'parametres' },
+            { cle: 'comptes', texte: 'Comptes', lien: 'comptes.html', icone: 'comptes', admin: true }
+        ] }
     ],
     DELEGUE: [
-        { cle: 'accueil', texte: 'Accueil', lien: 'accueil-delegue.html' },
-        { cle: 'demande', texte: 'Nouvelle demande', lien: 'demande-emprunt.html' },
-        { cle: 'mes-emprunts', texte: 'Mes emprunts', lien: 'mes-emprunts.html' }
+        { groupe: 'Mon espace', liens: [
+            { cle: 'accueil', texte: 'Accueil', lien: 'accueil-delegue.html', icone: 'accueil' },
+            { cle: 'scan', texte: 'Scanner un matériel', lien: 'scan.html', icone: 'scan' },
+            { cle: 'demande', texte: 'Demander du matériel', lien: 'demande-emprunt.html', icone: 'demande' },
+            { cle: 'reservation', texte: 'Réserver à l\'avance', lien: 'reservation.html', icone: 'reservation' },
+            { cle: 'mes-emprunts', texte: 'Mes emprunts', lien: 'mes-emprunts.html', icone: 'emprunts' }
+        ] }
     ]
 };
+
+let UTILISATEUR = null;
 
 /**
  * À appeler au chargement de chaque page protégée.
  * Vérifie la session auprès du serveur, redirige si le profil ne convient pas,
- * construit l'en-tête de navigation et renvoie l'utilisateur connecté.
+ * construit le menu et renvoie l'utilisateur connecté.
  * @param {{type?: 'AGENT'|'DELEGUE', admin?: boolean, page: string}} options
  */
 async function initPage(options) {
     const moi = await appelApi('/auth/moi');
     if (!moi || !moi.success) {
-        window.location.href = 'login.html';
+        const retour = encodeURIComponent(location.pathname.replace(/^\//, '') + location.search);
+        window.location.href = 'login.html?retour=' + retour;
         return new Promise(() => {});
     }
     if ((options.type && moi.type !== options.type) || (options.admin && !moi.administrateur)) {
         window.location.href = moi.type === 'AGENT' ? 'accueil-agent.html' : 'accueil-delegue.html';
         return new Promise(() => {});
     }
+    UTILISATEUR = moi;
     construireEntete(moi, options.page);
     return moi;
 }
@@ -103,37 +154,144 @@ async function initPage(options) {
 function construireEntete(moi, pageActive) {
     const conteneur = document.getElementById('entete');
     if (!conteneur) return;
+    document.body.classList.add('avec-menu');
 
-    const liens = NAVIGATION[moi.type]
-        .filter(l => !l.admin || moi.administrateur)
-        .map(l => `<a href="${l.lien}" ${l.cle === pageActive ? 'aria-current="page"' : ''} class="px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition ${
-            l.cle === pageActive ? 'bg-white text-blue-700 shadow-sm' : 'text-blue-50 hover:bg-blue-500'}">${l.texte}</a>`)
-        .join('');
+    const groupes = NAVIGATION[moi.type].map(g => {
+        const liens = g.liens.filter(l => !l.admin || moi.administrateur);
+        if (!liens.length) return '';
+        return `<div class="groupe">${g.groupe}</div>` + liens.map(l =>
+            `<a href="${l.lien}" class="lien" ${l.cle === pageActive ? 'aria-current="page"' : ''}>${icone(l.icone)}<span>${l.texte}</span></a>`).join('');
+    }).join('');
 
     const sousTitre = moi.type === 'AGENT'
-        ? `${moi.role}${moi.administrateur ? ' · administrateur' : ''}`
+        ? `${moi.role}${moi.administrateur ? ', administrateur' : ''}`
         : moi.filiereNiveau;
+    const initiales = moi.nom.split(/\s+/).filter(m => /[A-Za-zÀ-ÿ]/.test(m[0] || '')).slice(-2).map(m => m[0]).join('').toUpperCase();
 
     conteneur.innerHTML = `
-        <header class="bg-blue-600 text-white shadow-md">
-            <div class="max-w-7xl mx-auto px-4 md:px-6">
-                <div class="flex items-center justify-between gap-3 py-3">
-                    <a href="${NAVIGATION[moi.type][0].lien}" class="flex items-center gap-2 font-bold text-lg shrink-0">
-                        ${logoHtml('h-9')}
-                        <span class="hidden sm:inline">Gestion Matériel</span>
-                    </a>
-                    <div class="flex items-center gap-3 min-w-0">
-                        <a href="mon-compte.html" class="text-right leading-tight hover:underline min-w-0" title="Mon compte">
-                            <div class="text-sm font-semibold truncate">${echapper(moi.nom)}</div>
-                            <div class="text-xs text-blue-100 truncate">${echapper(sousTitre)}</div>
-                        </a>
-                        <button id="btnDeconnexion" class="bg-blue-700 hover:bg-blue-800 text-xs px-3 py-2 rounded-lg font-medium shrink-0">Déconnexion</button>
+        <div id="voile" class="fixed inset-0 bg-slate-900/40 z-30 hidden lg:hidden"></div>
+        <aside id="menuLateral" class="menu-lateral fixed inset-y-0 left-0 w-64 z-40 flex flex-col" aria-label="Menu principal">
+            <a href="${NAVIGATION[moi.type][0].liens[0].lien}" class="flex items-center gap-3 px-5 pt-5 pb-3">
+                ${logoHtml('h-9')}
+                <span class="leading-tight"><span class="block text-white font-semibold">Gestion du matériel</span>
+                <span class="block text-xs" style="color:#8ea3c4">Lomé Business School</span></span>
+            </a>
+            <nav class="flex-1 overflow-y-auto px-3 pb-4">${groupes}</nav>
+            <div class="border-t px-4 py-3 flex items-center gap-3" style="border-color:rgba(255,255,255,.1)">
+                <a href="mon-compte.html" class="flex items-center gap-3 min-w-0 flex-1 group" title="Mon compte">
+                    <span class="w-9 h-9 rounded-full grid place-items-center text-sm font-bold shrink-0" style="background:#2c4a78;color:#fff">${echapper(initiales || '?')}</span>
+                    <span class="min-w-0 leading-tight">
+                        <span class="block text-sm font-semibold text-white truncate group-hover:underline">${echapper(moi.nom)}</span>
+                        <span class="block text-xs truncate" style="color:#8ea3c4">${echapper(sousTitre)}</span>
+                    </span>
+                </a>
+                <button id="btnDeconnexion" class="bouton-icone" style="color:#b9c6da" title="Se déconnecter" aria-label="Se déconnecter">${icone('sortie', 'w-5 h-5')}</button>
+            </div>
+        </aside>
+        <header class="barre-haut sticky z-20 pas-impression" style="top:env(safe-area-inset-top,0px)">
+            <div class="max-w-7xl mx-auto px-4 md:px-6 h-14 flex items-center gap-2">
+                <button id="btnMenu" class="bouton-icone lg:hidden" aria-label="Ouvrir le menu" aria-controls="menuLateral" aria-expanded="false">${icone('menu', 'w-5 h-5')}</button>
+                <span class="lg:hidden flex items-center gap-2 font-semibold" style="color:var(--lbs-marine)">${logoHtml('h-7')}</span>
+                <div class="flex-1"></div>
+                <a href="scan.html" class="hidden sm:inline-flex items-center gap-2 h-9 px-3 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">${icone('scan', 'w-4 h-4')} Scanner</a>
+                <button id="btnTheme" class="bouton-icone" aria-label="Changer de thème" title="Mode clair / sombre"></button>
+                <div class="relative">
+                    <button id="btnNotifs" class="bouton-icone" aria-label="Notifications" aria-expanded="false" aria-haspopup="true">${icone('cloche', 'w-5 h-5')}<span id="nbNotifs" class="pastille hidden"></span></button>
+                    <div id="panneauNotifs" class="panneau-notifs hidden absolute right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden z-50">
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+                            <strong class="text-sm text-slate-800">Notifications</strong>
+                            <button id="btnToutLu" class="text-xs text-blue-600 hover:underline">Tout marquer comme lu</button>
+                        </div>
+                        <div id="listeNotifs" class="overflow-y-auto" style="max-height:calc(70vh - 3rem)"></div>
                     </div>
                 </div>
-                <nav class="flex gap-1 overflow-x-auto pb-2 -mx-1 px-1" aria-label="Navigation principale">${liens}</nav>
             </div>
         </header>`;
+
     document.getElementById('btnDeconnexion').addEventListener('click', seDeconnecter);
+    const menu = document.getElementById('menuLateral'), voile = document.getElementById('voile'), btnMenu = document.getElementById('btnMenu');
+    const basculerMenu = ouvrir => {
+        menu.classList.toggle('ouvert', ouvrir); voile.classList.toggle('hidden', !ouvrir);
+        btnMenu.setAttribute('aria-expanded', ouvrir);
+    };
+    btnMenu.addEventListener('click', () => basculerMenu(!menu.classList.contains('ouvert')));
+    voile.addEventListener('click', () => basculerMenu(false));
+
+    const btnTheme = document.getElementById('btnTheme');
+    const majIconeTheme = () => { btnTheme.innerHTML = icone(document.documentElement.classList.contains('dark') ? 'soleil' : 'lune', 'w-5 h-5'); };
+    majIconeTheme();
+    btnTheme.addEventListener('click', () => {
+        const sombre = !document.documentElement.classList.contains('dark');
+        document.documentElement.classList.toggle('dark', sombre);
+        try { localStorage.setItem('theme', sombre ? 'sombre' : 'clair'); } catch (e) { /* stockage indisponible */ }
+        majIconeTheme();
+    });
+
+    initialiserNotifications();
+}
+
+// ---------------------------------------------------------------------------
+// Notifications (cloche)
+// ---------------------------------------------------------------------------
+
+const STYLE_NOTIF = {
+    DEMANDE: '#22406e', RESERVATION: '#22406e', VALIDATION: '#1f7a4d', RETOUR: '#1f7a4d',
+    REFUS: '#a3141c', RETARD: '#a3141c', TRANSFERT: '#b26a00', INFO: '#5a6478'
+};
+
+function initialiserNotifications() {
+    const bouton = document.getElementById('btnNotifs'), panneau = document.getElementById('panneauNotifs');
+    bouton.addEventListener('click', e => {
+        e.stopPropagation();
+        const ouvrir = panneau.classList.contains('hidden');
+        panneau.classList.toggle('hidden', !ouvrir);
+        bouton.setAttribute('aria-expanded', ouvrir);
+        if (ouvrir) chargerNotifications();
+    });
+    document.addEventListener('click', e => {
+        if (!panneau.contains(e.target)) { panneau.classList.add('hidden'); bouton.setAttribute('aria-expanded', false); }
+    });
+    document.getElementById('btnToutLu').addEventListener('click', async () => {
+        await appelApi('/notifications/tout-lu', { method: 'POST' });
+        chargerNotifications();
+    });
+    chargerNotifications();
+    setInterval(chargerNotifications, 30000);
+}
+
+async function chargerNotifications() {
+    const r = await appelApi('/notifications');
+    if (!r || !r.success) return;
+    const nb = document.getElementById('nbNotifs');
+    nb.textContent = r.nonLues > 9 ? '9+' : r.nonLues;
+    nb.classList.toggle('hidden', !r.nonLues);
+    document.title = document.title.replace(/^\(\d+\+?\) /, '');
+    if (r.nonLues) document.title = `(${r.nonLues > 9 ? '9+' : r.nonLues}) ${document.title}`;
+
+    const liste = document.getElementById('listeNotifs');
+    if (!r.data.length) { liste.innerHTML = etatVide('Aucune notification pour le moment.'); return; }
+    liste.innerHTML = r.data.map(n => `
+        <button data-id="${n.id}" data-lien="${echapper(n.lien || '')}" class="notif w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50 flex gap-3 ${n.lue ? 'opacity-70' : ''}">
+            <span class="mt-1.5 w-2 h-2 rounded-full shrink-0" style="background:${n.lue ? 'transparent' : (STYLE_NOTIF[n.categorie] || '#5a6478')}"></span>
+            <span class="min-w-0">
+                <span class="block text-sm ${n.lue ? 'text-slate-600' : 'font-semibold text-slate-800'}">${echapper(n.titre)}</span>
+                <span class="block text-xs text-slate-600 mt-0.5">${echapper(n.message)}</span>
+                <span class="block text-[11px] text-slate-400 mt-1">${formaterDepuis(n.dateCreation)}</span>
+            </span>
+        </button>`).join('');
+    liste.querySelectorAll('.notif').forEach(b => b.addEventListener('click', async () => {
+        await appelApi(`/notifications/${b.dataset.id}/lue`, { method: 'POST' });
+        if (b.dataset.lien) window.location.href = b.dataset.lien; else chargerNotifications();
+    }));
+}
+
+/** « il y a 5 min », « hier à 14:30 »... */
+function formaterDepuis(iso) {
+    const d = new Date(iso), s = (Date.now() - d.getTime()) / 1000;
+    if (s < 60) return 'à l\'instant';
+    if (s < 3600) return `il y a ${Math.floor(s / 60)} min`;
+    if (s < 86400 && d.getDate() === new Date().getDate()) return `aujourd'hui à ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+    return formaterDate(iso);
 }
 
 async function seDeconnecter() {
@@ -146,7 +304,7 @@ async function seDeconnecter() {
  * Si le fichier est absent, un badge « LBS » le remplace.
  */
 function logoHtml(hauteur) {
-    return `<span class="bg-white rounded-lg px-1.5 py-1 inline-flex items-center shrink-0">
+    return `<span class="rounded-lg px-1.5 py-1 inline-flex items-center shrink-0" style="background:#fff">
         <img src="img/logo-lbs.png" alt="Lomé Business School" class="${hauteur} w-auto"
              onerror="this.replaceWith(Object.assign(document.createElement('span'), {className: 'text-blue-700 font-bold text-sm px-1', textContent: 'LBS'}))">
     </span>`;
@@ -196,6 +354,7 @@ function formaterHeure(heure) {
 }
 
 const STATUTS_FICHE = {
+    RESERVEE: { texte: 'Réservée', classe: 'bg-blue-100 text-blue-800' },
     EN_ATTENTE: { texte: 'En attente', classe: 'bg-amber-100 text-amber-800' },
     EN_COURS: { texte: 'En cours', classe: 'bg-blue-100 text-blue-700' },
     RETARD: { texte: 'En retard', classe: 'bg-red-600 text-white' },

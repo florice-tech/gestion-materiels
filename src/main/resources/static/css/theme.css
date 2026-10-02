@@ -1,0 +1,140 @@
+/* =====================================================================
+   Charte Lomé Business School — couche commune à toutes les pages.
+   Les pages utilisent Tailwind ; ce fichier fixe la typographie, le menu,
+   les détails institutionnels et le mode sombre (classe .dark sur <html>).
+   ===================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap');
+
+:root {
+    --lbs-marine: #22406e;
+    --lbs-marine-profond: #152a49;
+    --lbs-rouge: #a3141c;
+    --fond: #f3f5f9;
+    --surface: #ffffff;
+    --texte: #1a2233;
+    --texte-doux: #5a6478;
+    --ligne: #dde2ea;
+    --ombre: 0 1px 2px rgba(21, 42, 73, .06), 0 4px 14px rgba(21, 42, 73, .05);
+}
+
+html { -webkit-text-size-adjust: 100%; }
+body {
+    font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--fond) !important;
+    color: var(--texte);
+    font-feature-settings: "tnum" 1;
+}
+
+/* Titres de page : serif académique */
+main h1, h1.titre-serif {
+    font-family: "Source Serif 4", Georgia, "Times New Roman", serif;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+}
+main h2 { letter-spacing: -0.005em; }
+
+/* Pas de libellés en capitales : on garde la casse normale, plus lisible */
+.uppercase { text-transform: none !important; letter-spacing: normal !important; }
+
+/* Cartes : ombre douce teintée marine plutôt que grise */
+.shadow-sm { box-shadow: var(--ombre) !important; }
+
+:focus-visible { outline: 3px solid #5d82b2; outline-offset: 2px; }
+
+/* ---------- Menu latéral ---------- */
+@media (min-width: 1024px) {
+    body.avec-menu { padding-left: 16rem; }
+}
+.menu-lateral {
+    background: var(--lbs-marine-profond);
+    color: #dbe4f1;
+}
+.menu-lateral .groupe { color: #8ea3c4; font-size: .75rem; font-weight: 600; padding: 0 .75rem; margin-top: 1.25rem; margin-bottom: .35rem; }
+.menu-lateral a.lien {
+    position: relative; display: flex; align-items: center; gap: .65rem;
+    padding: .55rem .75rem; border-radius: .5rem; font-size: .9rem; color: #dbe4f1;
+}
+.menu-lateral a.lien:hover { background: rgba(255, 255, 255, .07); color: #fff; }
+.menu-lateral a.lien[aria-current="page"] { background: rgba(255, 255, 255, .11); color: #fff; font-weight: 600; }
+/* Le point rouge du logo LBS marque la page active */
+.menu-lateral a.lien[aria-current="page"]::before {
+    content: ""; position: absolute; left: -.55rem; top: 50%; width: .5rem; height: .5rem;
+    margin-top: -.25rem; border-radius: 999px; background: var(--lbs-rouge);
+    box-shadow: 0 0 0 3px var(--lbs-marine-profond);
+}
+.menu-lateral svg { width: 1.1rem; height: 1.1rem; flex-shrink: 0; opacity: .85; }
+.pastille {
+    min-width: 1.15rem; height: 1.15rem; padding: 0 .3rem; border-radius: 999px;
+    background: var(--lbs-rouge); color: #fff; font-size: .68rem; font-weight: 700;
+    display: inline-grid; place-items: center; line-height: 1;
+}
+.barre-haut { background: color-mix(in srgb, var(--fond) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--ligne); }
+.bouton-icone { width: 2.4rem; height: 2.4rem; display: inline-grid; place-items: center; border-radius: .6rem; color: var(--texte-doux); position: relative; }
+.bouton-icone:hover { background: rgba(34, 64, 110, .08); color: var(--lbs-marine); }
+.bouton-icone .pastille { position: absolute; top: .1rem; right: .05rem; }
+.panneau-notifs { width: min(24rem, calc(100vw - 2rem)); max-height: 70vh; }
+
+/* Tiroir mobile */
+@media (max-width: 1023px) {
+    .menu-lateral { transform: translateX(-100%); transition: transform .22s ease; }
+    .menu-lateral.ouvert { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .menu-lateral { transition: none; }
+}
+
+/* ---------- Impression (bons, étiquettes) ---------- */
+@media print {
+    .menu-lateral, .barre-haut, .pas-impression { display: none !important; }
+    body.avec-menu { padding-left: 0 !important; }
+    body { background: #fff !important; }
+}
+
+/* =====================================================================
+   Mode sombre : on retend les classes utilisées par les pages.
+   ===================================================================== */
+html.dark { color-scheme: dark; --fond: #0f1726; --surface: #172235; --texte: #e4e9f2; --texte-doux: #9aa7bd; --ligne: #2a3a55;
+    --ombre: 0 1px 2px rgba(0, 0, 0, .35), 0 6px 18px rgba(0, 0, 0, .25); }
+html.dark body { color: var(--texte); }
+html.dark .bg-white { background-color: var(--surface) !important; }
+html.dark .bg-slate-50, html.dark .bg-slate-100 { background-color: #1c2a40 !important; }
+html.dark .bg-slate-200 { background-color: #2a3a55 !important; }
+html.dark .text-slate-800, html.dark .text-slate-700, html.dark .text-slate-900 { color: #e4e9f2 !important; }
+html.dark .text-slate-600, html.dark .text-slate-500 { color: #a9b5c9 !important; }
+html.dark .text-slate-400 { color: #7f8ca3 !important; }
+html.dark .border-slate-200, html.dark .border-slate-100, html.dark .border-slate-300, html.dark .divide-slate-100 > * + * { border-color: var(--ligne) !important; }
+html.dark input, html.dark select, html.dark textarea { background-color: #101a2b !important; color: #e4e9f2 !important; border-color: #33466a !important; }
+html.dark .bg-blue-50 { background-color: #1a2c4a !important; }
+html.dark .border-blue-200 { border-color: #2f4c7a !important; }
+html.dark .text-blue-900, html.dark .text-blue-800, html.dark .text-blue-700, html.dark .text-blue-600 { color: #9fbcf0 !important; }
+html.dark .bg-blue-600 { background-color: #3a6296 !important; }
+html.dark .bg-red-50 { background-color: #3a1820 !important; }
+html.dark .border-red-200, html.dark .border-red-300 { border-color: #6b2a35 !important; }
+html.dark .text-red-700, html.dark .text-red-600 { color: #ff9ca4 !important; }
+html.dark .bg-amber-50 { background-color: #3a2e14 !important; }
+html.dark .border-amber-200 { border-color: #6b5420 !important; }
+html.dark .text-amber-800 { color: #f3cf7a !important; }
+html.dark .bg-green-50 { background-color: #12321f !important; }
+html.dark .border-green-200 { border-color: #24573a !important; }
+html.dark .text-green-700 { color: #8fe0ad !important; }
+html.dark .bg-green-100 { background-color: #17432a !important; }
+html.dark .bg-blue-100 { background-color: #1e3558 !important; }
+html.dark .bg-amber-100 { background-color: #4a3812 !important; }
+html.dark .bg-red-100 { background-color: #4a1d26 !important; }
+html.dark .bg-orange-100 { background-color: #4a2a12 !important; }
+html.dark .text-orange-700, html.dark .text-orange-800 { color: #ffbe8a !important; }
+html.dark .bg-yellow-100 { background-color: #463d12 !important; }
+html.dark .text-yellow-800 { color: #f3dd7a !important; }
+html.dark .bg-purple-100 { background-color: #33224d !important; }
+html.dark .text-purple-700 { color: #cdb2f5 !important; }
+html.dark .hover\:bg-slate-50:hover, html.dark .hover\:bg-blue-50:hover { background-color: #1f2f48 !important; }
+html.dark .barre-haut { background: color-mix(in srgb, var(--fond) 85%, transparent); }
+html.dark .bouton-icone:hover { background: rgba(255, 255, 255, .07); color: #fff; }
+
+/* Liens texte : la palette « blue » étant le marine LBS, on les souligne finement pour qu'ils se distinguent du texte. */
+a.text-blue-600:not([class*="bg-"]), a.text-blue-700:not([class*="bg-"]) {
+    text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px;
+    text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+}
+a.text-blue-600:not([class*="bg-"]):hover, a.text-blue-700:not([class*="bg-"]):hover { text-decoration-color: currentColor; }

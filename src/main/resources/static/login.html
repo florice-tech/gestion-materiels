@@ -7,13 +7,14 @@
     <title>Connexion - Gestion Matériel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="js/commun.js"></script>
+    <link rel="stylesheet" href="css/theme.css">
 </head>
 <body class="bg-slate-100 font-sans min-h-screen flex items-center justify-center p-6">
 
     <div class="max-w-md w-full bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
         <div class="bg-blue-600 px-6 py-6 text-white text-center">
             <div id="logo" class="flex justify-center mb-3"></div>
-            <h1 class="text-xl font-bold">Gestion des Emprunts de Matériel</h1>
+            <h1 class="titre-serif text-2xl">Gestion des emprunts de matériel</h1>
             <p class="text-blue-100 text-xs uppercase tracking-wider mt-1">Lomé Business School</p>
             <p class="text-blue-100 text-sm mt-1">Agents de surveillance et délégués</p>
         </div>
@@ -42,6 +43,9 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('logo').innerHTML = logoHtml('h-14');
+            if (new URLSearchParams(location.search).get('retour')?.startsWith('scan.html')) {
+                afficherMessage('messageZone', 'Connectez-vous pour continuer avec le matériel scanné.', true);
+            }
             if (new URLSearchParams(location.search).has('expire')) {
                 afficherMessage('messageZone', 'Votre session a expiré, veuillez vous reconnecter.', false);
             }
@@ -52,7 +56,13 @@
             document.getElementById('formConnexion').addEventListener('submit', seConnecter);
         });
 
+        // Après connexion : la page demandée (ex : scan d'un QR code), sinon l'accueil du profil
         function allerALAccueil(utilisateur) {
+            const retour = new URLSearchParams(location.search).get('retour');
+            if (retour && /^[a-z0-9-]+\.html(\?[^#]*)?$/i.test(retour)) {
+                window.location.href = retour;
+                return;
+            }
             window.location.href = utilisateur.type === 'AGENT' ? 'accueil-agent.html' : 'accueil-delegue.html';
         }
 

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="img/logo-lbs-icone.png">
+    <title>Scanner un matériel - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/commun.js"></script>
+    <link rel="stylesheet" href="css/theme.css">
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
+
+    <main class="max-w-xl mx-auto p-4 md:p-6 space-y-5">
+        <div>
+            <h1 class="text-2xl md:text-3xl text-slate-800">Scanner un matériel</h1>
+            <p class="text-sm text-slate-500 mt-1">Visez le QR code collé sur l'équipement, ou tapez le code écrit dessous.</p>
+        </div>
+
+        <!-- Lecteur -->
+        <section id="zoneLecteur" class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-4">
+            <div id="lecteur" class="rounded-lg overflow-hidden bg-slate-100 aspect-square max-h-[360px] mx-auto hidden"></div>
+            <button id="btnCamera" type="button" class="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg">
+                <span id="iconeCamera"></span> Ouvrir la caméra
+            </button>
+            <p id="aideCamera" class="text-xs text-slate-500">
+                Sur téléphone, vous pouvez aussi ouvrir l'appareil photo et viser l'étiquette : le lien du QR code ouvre directement cette page.
+            </p>
+            <form id="formCode" class="flex gap-2">
+                <label for="code" class="sr-only">Code du matériel</label>
+                <input id="code" type="text" placeholder="Code, ex : VP-01" autocomplete="off" required
+                       class="flex-1 px-3 py-2.5 border border-slate-300 rounded-lg text-sm font-medium tracking-wide focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                <button type="submit" class="px-4 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50">Valider</button>
+            </form>
+        </section>
+
+        <div id="messageZone" class="hidden"></div>
+
+        <!-- Résultat du scan -->
+        <section id="resultat" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"></section>
+    </main>
+
+    <script>
+        let moi = null, salles = [], lecteur = null, codeCourant = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            moi = await initPage({ page: 'scan' });
+            document.getElementById('iconeCamera').innerHTML = icone('scan', 'w-5 h-5');
+            document.getElementById('btnCamera').addEventListener('click', basculerCamera);
+            document.getElementById('formCode').addEventListener('submit', e => {
+                e.preventDefault();
+                ouvrir(document.getElementById('code').value);
+            });
+            if (moi.type === 'DELEGUE') salles = await appelApi('/salles');
+            const code = new URLSearchParams(location.search).get('code');
+            if (code) ouvrir(code);
+        });
+
+        /** Le QR code contient l'adresse .../scan.html?code=XX ; on accepte aussi le code seul. */
+        function extraireCode(texte) {
+            const t = (texte || '').trim();
+            try { const u = new URL(t); return u.searchParams.get('code') || t; } catch (e) { return t; }
+        }
+
+        async function basculerCamera() {
+            const zone = document.getElementById('lecteur'), bouton = document.getElementById('btnCamera');
+            if (lecteur) { await arreterCamera(); return; }
+            if (!window.Html5Qrcode) {
+                afficherMessage('messageZone', 'Le lecteur de QR code n\'a pas pu se charger. Tapez le code à la main.', false);
+                return;
+            }
+            zone.classList.remove('hidden');
+            lecteur = new Html5Qrcode('lecteur');
+            try {
+                await lecteur.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 230, height: 230 } },
+                    texte => { arreterCamera(); ouvrir(extraireCode(texte)); }, () => {});
+                bouton.lastChild.textContent = ' Fermer la caméra';
+            } catch (e) {
+                await arreterCamera();
+                afficherMessage('messageZone', window.isSecureContext
+                    ? 'Impossible d\'accéder à la caméra (autorisation refusée ou aucune caméra). Tapez le code à la main.'
+                    : 'La caméra du navigateur nécessite une connexion sécurisée. Utilisez l\'appareil photo du téléphone ou tapez le code.', false);
+            }
+        }
+
+        async function arreterCamera() {
+            if (lecteur) { try { await lecteur.stop(); } catch (e) { /* déjà arrêté */ } lecteur = null; }
+            document.getElementById('lecteur').classList.add('hidden');
+            document.getElementById('btnCamera').lastChild.textContent = ' Ouvrir la caméra';
+        }
+
+        async function ouvrir(code) {
+            code = extraireCode(code).toUpperCase();
+            if (!code) return;
+            codeCourant = code;
+            document.getElementById('code').value = code;
+            history.replaceState(null, '', 'scan.html?code=' + encodeURIComponent(code));
+            document.getElementById('messageZone').classList.add('hidden');
+            const s = await appelApi('/scan/' + encodeURIComponent(code));
+            if (!s || s.success === false) {
+                document.getElementById('resultat').classList.add('hidden');
+                afficherMessage('messageZone', s.message, false);
+                return;
+            }
+            afficherSituation(s);
+        }
+
+        const optionsSalles = () => '<option value="">Choisir la salle</option>' +
+            salles.map(s => `<option value="${echapper(s.nom)}">${echapper(s.nom)}</option>`).join('');
+
+        // Proposition : dans deux heures, sans dépasser la fin de journée
+        function heureParDefaut() {
+            const d = new Date(Date.now() + 2 * 3600 * 1000);
+            if (d.getDate() !== new Date().getDate()) return '23:55';
+            const deux = n => String(n).padStart(2, '0');
+            return `${deux(d.getHours())}:${deux(d.getMinutes() - d.getMinutes() % 5)}`;
+        }
+
+        const champsSalleHeure = libelleHeure => `
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div><label for="salle" class="block text-sm font-medium text-slate-700 mb-1">Salle</label>
+                    <select id="salle" required class="w-full px-3 py-2.5 border border-slate-300 rounded-lg">${optionsSalles()}</select></div>
+                <div><label for="heure" class="block text-sm font-medium text-slate-700 mb-1">${libelleHeure}</label>
+                    <input id="heure" type="time" required value="${heureParDefaut()}" class="w-full px-3 py-2.5 border border-slate-300 rounded-lg"></div>
+            </div>`;
+
+        function afficherSituation(s) {
+            const m = s.materiel, zone = document.getElementById('resultat');
+            const statut = LABELS_STATUT_MATERIEL[m.statut];
+            const d = s.detenteur;
+            const blocDetenteur = d ? `
+                <div class="rounded-lg border ${d.enRetard ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-slate-50'} p-3 text-sm">
+                    <div class="text-slate-500 text-xs">Actuellement chez</div>
+                    <div class="font-semibold text-slate-800">${echapper(d.nom)} <span class="font-normal text-slate-500">· ${echapper(d.filiereNiveau)}</span></div>
+                    <div class="text-slate-600 text-xs mt-1">Salle ${echapper(d.salle)}, depuis ${formaterDate(d.depuis)}${d.echeance ? `, retour prévu ${formaterHeure(d.echeance.substring(11))}` : ''}</div>
+                    ${d.enRetard ? '<div class="text-red-700 text-xs font-semibold mt-1">En retard</div>' : ''}
+                </div>` : '';
+
+            let action = '';
+            switch (s.action) {
+                case 'RECUPERER':
+                    action = `<form id="formAction" class="space-y-3">${champsSalleHeure('Je le rends avant')}
+                        <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg">Récupérer ce matériel</button></form>`;
+                    break;
+                case 'RETIRER_DEMANDE':
+                    action = `<button id="btnAction" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg">Retirer le matériel</button>`;
+                    break;
+                case 'RENDRE':
+                    action = `<form id="formAction" class="space-y-3">
+                        <fieldset class="space-y-2"><legend class="text-sm font-medium text-slate-700 mb-1">État du matériel</legend>
+                            <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50"><input type="radio" name="etat" value="bon" checked class="w-4 h-4"> <span class="text-sm text-slate-800">Tout fonctionne, en bon état</span></label>
+                            <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50"><input type="radio" name="etat" value="probleme" class="w-4 h-4"> <span class="text-sm text-slate-800">J'ai remarqué un problème</span></label>
+                        </fieldset>
+                        <div id="zoneRemarque" class="hidden"><label for="remarque" class="block text-sm font-medium text-slate-700 mb-1">Décrivez le problème</label>
+                            <textarea id="remarque" rows="3" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm" placeholder="Ex : l'image clignote, câble abîmé..."></textarea></div>
+                        <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg">Rendre le matériel</button></form>`;
+                    break;
+                case 'DEMANDER_TRANSFERT':
+                    action = `<form id="formAction" class="space-y-3">${champsSalleHeure('Je le rendrai avant')}
+                        <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg">Demander à ${echapper(d.nom)} de me le passer</button>
+                        <p class="text-xs text-slate-500">${echapper(d.nom)} recevra une notification et devra accepter. Le matériel passera alors sous votre responsabilité.</p></form>`;
+                    break;
+                case 'TRANSFERT_EN_ATTENTE':
+                    action = `<button id="btnAnnulerTransfert" class="w-full border border-slate-300 text-slate-700 font-medium py-2.5 rounded-lg hover:bg-slate-50">Annuler ma demande</button>`;
+                    break;
+                case 'CONSULTER':
+                    action = `<a href="fiche-materiel.html?id=${m.id}" class="block text-center w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg">Voir le parcours de ce matériel</a>`;
+                    break;
+            }
+
+            zone.innerHTML = `
+                <div class="p-5 border-b border-slate-200 flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <h2 class="text-xl font-semibold text-slate-800">${echapper(m.designation)}</h2>
+                        <div class="text-sm text-slate-500 mt-0.5">${echapper(m.codeUnique || '')} · ${echapper(m.categorie.nom)}</div>
+                    </div>
+                    ${badge(statut)}
+                </div>
+                <div class="p-5 space-y-4">
+                    ${blocDetenteur}
+                    <p class="text-sm ${s.action === 'INDISPONIBLE' ? 'text-red-700 font-medium' : 'text-slate-700'}">${echapper(s.message)}</p>
+                    <div id="messageAction" class="hidden"></div>
+                    ${action}
+                </div>`;
+            zone.classList.remove('hidden');
+            zone.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            brancherAction(s);
+        }
+
+        function brancherAction(s) {
+            const form = document.getElementById('formAction');
+            document.querySelectorAll('input[name=etat]').forEach(r => r.addEventListener('change', () =>
+                document.getElementById('zoneRemarque').classList.toggle('hidden', document.querySelector('input[name=etat]:checked').value !== 'probleme')));
+            const btn = document.getElementById('btnAction');
+            if (btn) btn.addEventListener('click', () => envoyer('retirer', {}));
+            const btnAnnuler = document.getElementById('btnAnnulerTransfert');
+            if (btnAnnuler) btnAnnuler.addEventListener('click', async () => {
+                const r = await appelApi(`/transferts/${s.transfertId}/annuler`, { method: 'POST' });
+                afficherMessage('messageAction', r.message, r.success);
+                if (r.success) setTimeout(() => ouvrir(codeCourant), 800);
+            });
+            if (!form) return;
+            form.addEventListener('submit', e => {
+                e.preventDefault();
+                if (s.action === 'RENDRE') {
+                    const probleme = document.querySelector('input[name=etat]:checked').value === 'probleme';
+                    envoyer('rendre', { probleme, remarque: document.getElementById('remarque').value });
+                } else {
+                    const corps = { salle: document.getElementById('salle').value, heureRetourPrevue: document.getElementById('heure').value };
+                    envoyer(s.action === 'RECUPERER' ? 'recuperer' : 'transfert', corps);
+                }
+            });
+        }
+
+        async function envoyer(action, corps) {
+            const boutons = document.querySelectorAll('#resultat button');
+            boutons.forEach(b => b.disabled = true);
+            const r = await appelApi(`/scan/${encodeURIComponent(codeCourant)}/${action}`, { method: 'POST', body: corps });
+            boutons.forEach(b => b.disabled = false);
+            if (!r.success) { afficherMessage('messageAction', r.message, false); return; }
+            document.getElementById('resultat').innerHTML = `
+                <div class="p-6 text-center space-y-3">
+                    <div class="mx-auto w-12 h-12 rounded-full grid place-items-center bg-green-50 text-green-700 text-2xl" aria-hidden="true">✓</div>
+                    <p class="text-slate-800 font-medium">${echapper(r.message)}</p>
+                    <div class="flex flex-wrap justify-center gap-2 pt-2">
+                        ${r.empruntId ? `<a href="bon.html?id=${r.empruntId}" class="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 hover:bg-slate-50">Voir le bon d'emprunt</a>` : ''}
+                        <a href="mes-emprunts.html" class="px-4 py-2 rounded-lg border border-slate-300 text-sm text-slate-700 hover:bg-slate-50">Mes emprunts</a>
+                        <a href="scan.html" class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">Scanner un autre matériel</a>
+                    </div>
+                </div>`;
+        }
+    </script>
+</body>
+</html>

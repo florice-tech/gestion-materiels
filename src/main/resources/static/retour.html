@@ -7,13 +7,14 @@
     <title>Retours - Gestion Matériel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="js/commun.js"></script>
+    <link rel="stylesheet" href="css/theme.css">
 </head>
 <body class="bg-slate-100 font-sans min-h-screen">
     <div id="entete"></div>
 
     <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         <div>
-            <h1 class="text-2xl font-bold text-slate-800">Retour du matériel</h1>
+            <h1 class="text-2xl md:text-3xl text-slate-800">Retour du matériel</h1>
             <p class="text-sm text-slate-500">Sélectionnez un emprunt en cours puis déclarez l'état de chaque article rendu.</p>
         </div>
 
@@ -22,7 +23,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <section class="lg:col-span-1 bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
                 <div class="flex justify-between items-center">
-                    <h2 class="font-bold text-slate-800">Emprunts en cours</h2>
+                    <h2 class="font-semibold text-slate-800">Emprunts en cours</h2>
                     <input id="filtre" type="search" placeholder="Filtrer..." class="w-32 px-2 py-1 border border-slate-300 rounded-lg text-xs">
                 </div>
                 <div id="listeEmprunts" class="space-y-2 max-h-[600px] overflow-y-auto"></div>
@@ -115,7 +116,7 @@
                         ${e.enRetard ? badge(STATUTS_FICHE.RETARD) : ''}
                     </div>
                     <div class="text-xs text-slate-500">${echapper(e.delegue.filiereNiveau)} — salle <span class="font-bold text-blue-600">${echapper(e.salle)}</span></div>
-                    <div class="text-[11px] text-slate-400">Sorti le ${formaterDate(e.dateSortie)} par ${echapper(e.agentSortie ? e.agentSortie.nom : '—')}</div>
+                    <div class="text-[11px] text-slate-400">Sorti le ${formaterDate(e.dateSortie)} · ${e.agentSortie ? 'remis par ' + echapper(e.agentSortie.nom) : (e.mode === 'TRANSFERT' ? 'transmis par ' + echapper(e.transmisPar || '') : 'retiré par scan')}</div>
                     ${heure ? `<div class="text-[11px] ${e.enRetard ? 'text-red-600 font-semibold' : 'text-slate-400'}">Retour prévu : ${heure}</div>` : ''}`;
                 carte.addEventListener('click', () => selectionnerFiche(e));
                 conteneur.appendChild(carte);
@@ -138,7 +139,11 @@
             retard.textContent = e.enRetard ? `⚠ En retard : retour attendu le ${formaterDate(e.echeance)}.` : '';
 
             const lignes = document.getElementById('lignesArticles');
-            lignes.innerHTML = e.details.map(d => d.materiel.typeGestion === 'DURABLE' ? `
+            lignes.innerHTML = e.details.map(d => d.materiel.typeGestion === 'DURABLE' && d.rendu ? `
+                <div class="flex items-center justify-between gap-3 p-3 border border-slate-100 bg-slate-50 rounded-lg text-sm">
+                    <div class="font-medium text-slate-700">${echapper(d.materiel.designation)} <span class="text-xs text-slate-400">${echapper(d.materiel.codeUnique || '')}</span></div>
+                    <span class="text-xs text-green-700">${d.modeRetour === 'TRANSFERT' ? 'Transféré' : 'Déjà rendu par scan'} le ${formaterDate(d.dateRetour)}</span>
+                </div>` : d.materiel.typeGestion === 'DURABLE' ? `
                 <div class="flex items-center justify-between gap-3 p-3 border border-slate-200 rounded-lg text-sm">
                     <div>
                         <div class="font-medium text-slate-800">${echapper(d.materiel.designation)}</div>

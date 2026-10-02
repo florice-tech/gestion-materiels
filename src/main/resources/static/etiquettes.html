@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="img/logo-lbs-icone.png">
+    <title>Étiquettes QR - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/commun.js"></script>
+    <link rel="stylesheet" href="css/theme.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        .etiquette { break-inside: avoid; }
+        .etiquette .qr img, .etiquette .qr canvas { width: 100%; height: auto; display: block; }
+        @media print {
+            @page { size: A4; margin: 10mm; }
+            .grille-etiquettes { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 6mm !important; }
+            .etiquette { border: 1px dashed #9aa7bd !important; box-shadow: none !important; background: #fff !important; color: #1a2233 !important; }
+            .etiquette.non-choisie { display: none !important; }
+            main { max-width: none !important; padding: 0 !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
+
+    <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-5">
+        <div class="flex flex-wrap items-end justify-between gap-3 pas-impression">
+            <div>
+                <h1 class="text-2xl md:text-3xl text-slate-800">Étiquettes QR</h1>
+                <p class="text-sm text-slate-500 mt-1">Imprimez les étiquettes et collez-les sur chaque équipement. Un scan ouvre la fiche du matériel dans l'application.</p>
+            </div>
+            <button id="btnImprimer" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2.5 rounded-lg">Imprimer la sélection</button>
+        </div>
+
+        <div id="avertissement" class="hidden pas-impression rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm p-3"></div>
+
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-wrap items-center gap-3 pas-impression">
+            <input id="filtre" type="search" placeholder="Rechercher un matériel ou un code..." class="flex-1 min-w-[200px] px-3 py-2 border border-slate-300 rounded-lg text-sm">
+            <label class="flex items-center gap-2 text-sm text-slate-700"><input id="toutCocher" type="checkbox" checked class="w-4 h-4"> Tout sélectionner</label>
+            <span id="compte" class="text-sm text-slate-500"></span>
+        </section>
+
+        <section id="grille" class="grille-etiquettes grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4"></section>
+    </main>
+
+    <script>
+        let materiels = [], base = location.origin;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initPage({ type: 'AGENT', page: 'etiquettes' });
+            const config = await appelApi('/config');
+            if (config.urlPublique) base = config.urlPublique;
+            if (/localhost|127\.0\.0\.1/.test(base)) {
+                const av = document.getElementById('avertissement');
+                av.innerHTML = `Les QR codes pointent vers <strong>${echapper(base)}</strong>, une adresse que les téléphones ne peuvent pas joindre.
+                    Ouvrez cette page avec l'adresse réseau du serveur (par exemple http://192.168.1.20:8080) ou définissez la variable <code>APP_URL</code> avant d'imprimer.`;
+                av.classList.remove('hidden');
+            }
+            materiels = (await appelApi('/materiels')).filter(m => m.typeGestion === 'DURABLE' && m.codeUnique);
+            afficher();
+            document.getElementById('filtre').addEventListener('input', afficher);
+            document.getElementById('toutCocher').addEventListener('change', e => {
+                document.querySelectorAll('.choix').forEach(c => { c.checked = e.target.checked; c.dispatchEvent(new Event('change')); });
+            });
+            document.getElementById('btnImprimer').addEventListener('click', () => window.print());
+        });
+
+        function afficher() {
+            const texte = document.getElementById('filtre').value.toLowerCase().trim();
+            const liste = materiels.filter(m => !texte || `${m.designation} ${m.codeUnique}`.toLowerCase().includes(texte));
+            const grille = document.getElementById('grille');
+            document.getElementById('compte').textContent = `${liste.length} étiquette(s)`;
+            if (!liste.length) { grille.innerHTML = `<div class="col-span-full bg-white rounded-xl border border-slate-200">${etatVide('Aucun matériel durable avec un code. Ajoutez-en depuis le catalogue.')}</div>`; return; }
+            grille.innerHTML = liste.map(m => `
+                <article class="etiquette bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex flex-col gap-2">
+                    <label class="flex items-center gap-2 text-xs text-slate-500 pas-impression"><input type="checkbox" class="choix w-4 h-4" checked> Imprimer</label>
+                    <div class="flex items-center justify-between gap-2">
+                        <img src="img/logo-lbs.png" alt="LBS" class="h-7 w-auto">
+                        <span class="text-[11px] text-slate-500 text-right leading-tight">Propriété de<br>Lomé Business School</span>
+                    </div>
+                    <div class="qr bg-white p-1 rounded" data-code="${echapper(m.codeUnique)}"></div>
+                    <div class="text-center leading-tight">
+                        <div class="font-semibold text-slate-800 text-sm">${echapper(m.designation)}</div>
+                        <div class="text-lg font-bold tracking-wider text-slate-800">${echapper(m.codeUnique)}</div>
+                        <div class="text-[11px] text-slate-500">Scannez pour emprunter ou rendre</div>
+                    </div>
+                </article>`).join('');
+            grille.querySelectorAll('.qr').forEach(div => {
+                if (window.QRCode) {
+                    new QRCode(div, { text: `${base}/scan.html?code=${encodeURIComponent(div.dataset.code)}`, width: 256, height: 256,
+                                      colorDark: '#152a49', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+                } else {
+                    div.innerHTML = '<p class="text-xs text-red-700 text-center">Générateur de QR code indisponible (connexion internet requise).</p>';
+                }
+            });
+            grille.querySelectorAll('.choix').forEach(c => c.addEventListener('change', () =>
+                c.closest('.etiquette').classList.toggle('non-choisie', !c.checked)));
+        }
+    </script>
+</body>
+</html>

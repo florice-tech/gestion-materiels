@@ -7,6 +7,7 @@
     <title>Tableau de bord - Gestion Matériel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="js/commun.js"></script>
+    <link rel="stylesheet" href="css/theme.css">
 </head>
 <body class="bg-slate-100 font-sans min-h-screen">
     <div id="entete"></div>
@@ -14,7 +15,7 @@
     <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         <div class="flex flex-wrap items-end justify-between gap-2">
             <div>
-                <h1 class="text-2xl font-bold text-slate-800">Tableau de bord</h1>
+                <h1 class="text-2xl md:text-3xl text-slate-800">Tableau de bord</h1>
                 <p id="dateDuJour" class="text-sm text-slate-500"></p>
             </div>
             <button id="btnActualiser" class="text-sm text-blue-600 hover:underline font-medium">↻ Actualiser</button>
@@ -26,7 +27,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Activité 7 jours -->
             <section class="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <h2 class="font-bold text-slate-800">Sorties de matériel — 7 derniers jours</h2>
+                <h2 class="font-semibold text-slate-800">Sorties de matériel — 7 derniers jours</h2>
                 <p class="text-xs text-slate-500 mb-4">Nombre de fiches validées (matériel remis) par jour</p>
                 <div id="graphiqueActivite" class="h-48 flex items-end gap-2 border-b border-slate-200"></div>
                 <div id="etiquettesActivite" class="flex gap-2 mt-2"></div>
@@ -34,7 +35,7 @@
 
             <!-- État du parc -->
             <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <h2 class="font-bold text-slate-800">Matériel durable</h2>
+                <h2 class="font-semibold text-slate-800">Matériel durable</h2>
                 <p id="totalParc" class="text-xs text-slate-500 mb-4"></p>
                 <ul id="etatParc" class="space-y-2 text-sm"></ul>
             </section>
@@ -43,7 +44,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <div class="flex justify-between items-center mb-3">
-                    <h2 class="font-bold text-slate-800">⚠ Retards</h2>
+                    <h2 class="font-semibold text-slate-800">⚠ Retards</h2>
                     <a href="retour.html" class="text-xs text-blue-600 hover:underline">Gérer les retours</a>
                 </div>
                 <div id="listeRetards" class="space-y-2"></div>
@@ -51,14 +52,14 @@
 
             <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <div class="flex justify-between items-center mb-3">
-                    <h2 class="font-bold text-slate-800">Stocks bas</h2>
+                    <h2 class="font-semibold text-slate-800">Stocks bas</h2>
                     <a href="materiel.html" class="text-xs text-blue-600 hover:underline">Catalogue</a>
                 </div>
                 <div id="listeStocksBas" class="space-y-2"></div>
             </section>
 
             <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                <h2 class="font-bold text-slate-800 mb-3">Matériel le plus emprunté</h2>
+                <h2 class="font-semibold text-slate-800 mb-3">Matériel le plus emprunté</h2>
                 <div id="listePopulaires" class="space-y-3"></div>
             </section>
         </div>
