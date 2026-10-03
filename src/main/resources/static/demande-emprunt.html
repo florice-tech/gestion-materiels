@@ -89,7 +89,7 @@
 
             conteneur.innerHTML = Object.keys(groupes).sort().map(nom => `
                 <div>
-                    <h3 class="text-xs font-bold text-slate-500 uppercase mb-2">${echapper(nom)}</h3>
+                    <h3 class="text-sm font-semibold text-slate-600 mb-2">${echapper(nom.charAt(0) + nom.slice(1).toLowerCase())}</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-2">${groupes[nom].map(ligneMateriel).join('')}</div>
                 </div>`).join('');
 
