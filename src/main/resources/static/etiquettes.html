@@ -40,6 +40,7 @@
             <label class="flex items-center gap-2 text-sm text-slate-700"><input id="toutCocher" type="checkbox" checked class="w-4 h-4"> Tout sélectionner</label>
             <select id="filtreType" class="px-3 py-2 border border-slate-300 rounded-lg text-sm" aria-label="Type">
                 <option value="">Tout le matériel</option><option value="DURABLE">Matériel durable</option><option value="CONSOMMABLE">Fournitures</option>
+                <option value="SALLES">Portes des salles</option>
             </select>
             <span id="compte" class="text-sm text-slate-500"></span>
         </section>
@@ -48,7 +49,7 @@
     </main>
 
     <script>
-        let materiels = [], base = location.origin;
+        let materiels = [], salles = [], base = location.origin;
 
         document.addEventListener('DOMContentLoaded', async () => {
             await initPage({ type: 'AGENT', page: 'etiquettes' });
@@ -60,7 +61,9 @@
                     Ouvrez cette page avec l'adresse réseau du serveur (par exemple http://192.168.1.20:8080) ou définissez la variable <code>APP_URL</code> avant d'imprimer.`;
                 av.classList.remove('hidden');
             }
-            materiels = (await appelApi('/materiels')).filter(m => m.codeUnique);
+            [materiels, salles] = await Promise.all([appelApi('/materiels'), appelApi('/salles')]);
+            materiels = materiels.filter(m => m.codeUnique);
+            if (new URLSearchParams(location.search).get('type') === 'salles') document.getElementById('filtreType').value = 'SALLES';
             // ?code=VP-01 : seule cette étiquette est sélectionnée
             const seul = new URLSearchParams(location.search).get('code');
             if (seul) document.getElementById('filtre').value = seul;
@@ -74,6 +77,7 @@
         });
 
         function afficher() {
+            if (document.getElementById('filtreType').value === 'SALLES') { afficherSalles(); return; }
             const texte = document.getElementById('filtre').value.toLowerCase().trim();
             const type = document.getElementById('filtreType').value;
             const liste = materiels.filter(m => (!texte || `${m.designation} ${m.codeUnique}`.toLowerCase().includes(texte))
@@ -98,6 +102,36 @@
             grille.querySelectorAll('.qr').forEach(div => {
                 if (window.QRCode) {
                     new QRCode(div, { text: `${base}/scan.html?code=${encodeURIComponent(div.dataset.code)}`, width: 256, height: 256,
+                                      colorDark: '#152a49', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+                } else {
+                    div.innerHTML = '<p class="text-xs text-red-700 text-center">Générateur de QR code indisponible (connexion internet requise).</p>';
+                }
+            });
+            grille.querySelectorAll('.choix').forEach(c => c.addEventListener('change', () =>
+                c.closest('.etiquette').classList.toggle('non-choisie', !c.checked)));
+        }
+
+        /** Étiquettes à coller sur la porte de chaque salle : le scan montre ce qui s'y trouve et remplit la salle. */
+        function afficherSalles() {
+            const texte = document.getElementById('filtre').value.toLowerCase().trim();
+            const liste = salles.filter(sa => !texte || sa.nom.toLowerCase().includes(texte));
+            const grille = document.getElementById('grille');
+            document.getElementById('compte').textContent = pluriel(liste.length, 'étiquette');
+            if (!liste.length) { grille.innerHTML = `<div class="col-span-full bg-white rounded-xl border border-slate-200">${etatVide('Aucune salle. Ajoutez-en dans Salles et catégories.')}</div>`; return; }
+            grille.innerHTML = liste.map(sa => `
+                <article class="etiquette bg-white rounded-xl border border-slate-200 shadow-sm p-3 flex flex-col gap-2">
+                    <label class="flex items-center gap-2 text-xs text-slate-500 pas-impression"><input type="checkbox" class="choix w-4 h-4" checked> Imprimer</label>
+                    <div class="flex items-center justify-between gap-2">
+                        <img src="img/logo-lbs.png" alt="LBS" class="h-7 w-auto">
+                        <span class="text-[11px] text-slate-500 text-right leading-tight">Lomé Business School<br>Porte de salle</span>
+                    </div>
+                    <div class="text-center text-2xl font-extrabold text-slate-800 leading-tight">${/^\d/.test(sa.nom) ? 'Salle ' : ''}${echapper(sa.nom)}</div>
+                    <div class="qr bg-white p-1 rounded" data-salle="${sa.id}"></div>
+                    <div class="text-center text-[11px] text-slate-500 leading-tight">Scannez pour voir le matériel de la salle et emprunter pour ce cours</div>
+                </article>`).join('');
+            grille.querySelectorAll('.qr').forEach(div => {
+                if (window.QRCode) {
+                    new QRCode(div, { text: `${base}/salle.html?id=${div.dataset.salle}`, width: 256, height: 256,
                                       colorDark: '#152a49', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
                 } else {
                     div.innerHTML = '<p class="text-xs text-red-700 text-center">Générateur de QR code indisponible (connexion internet requise).</p>';

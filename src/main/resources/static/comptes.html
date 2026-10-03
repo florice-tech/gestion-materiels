@@ -14,7 +14,7 @@
 
     <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
         <div>
-            <h1 class="text-2xl md:text-3xl text-slate-800">Gestion des comptes</h1>
+            <h1 class="text-2xl md:text-3xl text-slate-800">Comptes et confiance</h1>
             <p class="text-sm text-slate-500">Un compte désactivé ne peut plus se connecter ; son historique est conservé.</p>
         </div>
 
@@ -41,12 +41,12 @@
                 <h2 class="font-semibold text-slate-800">Délégués</h2>
                 <input id="filtreDelegues" type="search" placeholder="Rechercher..." class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
             </div>
-            <p class="text-xs text-slate-400">Les délégués créent eux-mêmes leur compte depuis la page de connexion.</p>
+            <p class="text-xs text-slate-400">Les délégués créent eux-mêmes leur compte. Le score de confiance se calcule sur leurs retours des 90 derniers jours : après 3 retards, leurs réservations sont en pause jusqu'à ce que vous les débloquiez.</p>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left">
                     <thead><tr class="border-b border-slate-200 text-slate-500 text-xs uppercase">
-                        <th class="py-2 pr-3">Nom</th><th class="py-2 pr-3">Identifiant</th><th class="py-2 pr-3">Filière / niveau</th>
-                        <th class="py-2 pr-3">Inscrit le</th><th class="py-2 pr-3">État</th><th class="py-2 text-right">Actions</th>
+                        <th class="py-2 pr-3">Nom</th><th class="py-2 pr-3">Filière / niveau</th><th class="py-2 pr-3">WhatsApp</th>
+                        <th class="py-2 pr-3">Confiance</th><th class="py-2 pr-3">État</th><th class="py-2 text-right">Actions</th>
                     </tr></thead>
                     <tbody id="tableDelegues"></tbody>
                 </table>
@@ -57,6 +57,20 @@
     <script>
         let moi = null;
         let delegues = [];
+        let confiances = {};
+
+        /** Sous le badge : la raison d'une pause, sinon le score et les retours à l'heure. */
+        function detailConfiance(c) {
+            if (!c) return '';
+            const ligne = t => `<span class="block text-[11px] text-slate-500 mt-0.5">${t}</span>`;
+            if (c.bloque) {
+                return ligne(c.motifBlocage.startsWith('Vous avez un matériel')
+                    ? 'Matériel en retard en ce moment : se débloque à son retour'
+                    : `${pluriel(c.enRetard, 'retard')} récents`);
+            }
+            if (!c.retours) return ligne('Aucun retour pour l\'instant');
+            return ligne(`Score ${c.score}/100 · ${c.aLHeure} sur ${pluriel(c.retours, 'retour')} à l'heure`);
+        }
 
         const bouton = (texte, attribut, classe = 'text-blue-600') =>
             `<button ${attribut} class="text-xs ${classe} hover:underline ml-3">${texte}</button>`;
@@ -137,7 +151,10 @@
         // ---------- Délégués ----------
 
         async function chargerDelegues() {
-            delegues = await appelApi('/admin/delegues');
+            const [liste, conf] = await Promise.all([appelApi('/admin/delegues'), appelApi('/confiance')]);
+            delegues = liste;
+            confiances = {};
+            (Array.isArray(conf) ? conf : []).forEach(c => confiances[c.delegueId] = c);
             afficherDelegues();
         }
 
@@ -150,20 +167,42 @@
             liste.forEach(d => {
                 const tr = document.createElement('tr');
                 tr.className = 'border-b border-slate-100';
+                const c = confiances[d.id];
+                const peutDebloquer = c && c.bloque && !c.motifBlocage.startsWith('Vous avez un matériel');
                 tr.innerHTML = `
-                    <td class="py-2 pr-3 font-medium text-slate-800">${echapper(d.nom)}</td>
-                    <td class="py-2 pr-3 font-mono text-xs">${echapper(d.identifiant)}</td>
+                    <td class="py-2 pr-3"><span class="font-medium text-slate-800">${echapper(d.nom)}</span><span class="block font-mono text-xs text-slate-400">${echapper(d.identifiant)}</span></td>
                     <td class="py-2 pr-3 text-slate-600">${echapper(d.filiereNiveau)}</td>
-                    <td class="py-2 pr-3 text-xs text-slate-500">${formaterDate(d.dateCreation)}</td>
+                    <td class="py-2 pr-3 whitespace-nowrap">${d.telephone ? `<span class="text-xs text-slate-600 mr-2">+${echapper(d.telephone)}</span>${boutonWhatsApp(d.telephone, `Bonjour ${d.nom.split(/\s+/)[0]}, ici le poste de surveillance de Lomé Business School.`, true)}` : '<span class="text-xs text-slate-400">—</span>'}</td>
+                    <td class="py-2 pr-3">${badgeConfiance(c)}${detailConfiance(c)}</td>
                     <td class="py-2 pr-3">${etat(d.actif)}</td>
                     <td class="py-2 text-right whitespace-nowrap">
+                        ${peutDebloquer ? bouton('Débloquer', 'data-debloquer', 'text-green-700') : ''}
+                        ${bouton('Numéro', 'data-tel')}
                         ${bouton('Mot de passe', 'data-mdp')}
                         ${bouton(d.actif ? 'Désactiver' : 'Réactiver', 'data-actif', d.actif ? 'text-red-600' : 'text-green-700')}
                     </td>`;
                 tr.querySelector('[data-mdp]').addEventListener('click', () => motDePasse('delegues', d));
+                tr.querySelector('[data-tel]').addEventListener('click', () => changerTelephone(d));
+                tr.querySelector('[data-debloquer]')?.addEventListener('click', async () => {
+                    const r = await appelApi(`/confiance/${d.id}/debloquer`, { method: 'POST' });
+                    afficherMessage('messageZone', r.message, r.success);
+                    chargerDelegues();
+                });
                 tr.querySelector('[data-actif]').addEventListener('click', () => changerActif('delegues', d, chargerDelegues));
                 corps.appendChild(tr);
             });
+        }
+
+        async function changerTelephone(d) {
+            const v = await demanderFormulaire({
+                titre: `Numéro WhatsApp de ${d.nom}`,
+                champs: [{ nom: 'telephone', label: 'Numéro', valeur: d.telephone || '', aide: '8 chiffres pour un numéro togolais (ex. 90 12 34 56). Laissez vide pour supprimer.' }],
+                bouton: 'Enregistrer'
+            });
+            if (!v) return;
+            const r = await appelApi(`/admin/delegues/${d.id}/telephone`, { method: 'PATCH', body: v });
+            afficherMessage('messageZone', r.message, r.success);
+            chargerDelegues();
         }
 
         // ---------- Actions communes ----------

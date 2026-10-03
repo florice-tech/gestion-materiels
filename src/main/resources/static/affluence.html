@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="img/logo-lbs-icone.png">
+    <title>Heures chargées - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/commun.js"></script>
+    <link rel="stylesheet" href="css/theme.css">
+    <style>
+        /* Échelle séquentielle : une seule teinte (marine LBS), du clair au foncé */
+        :root { --n0: #eef2f7; --n1: #dbe5f3; --n2: #b1c6e6; --n3: #7f9fcf; --n4: #4f74a8; --n5: #22406e; }
+        html.dark { --n0: #1a2638; --n1: #233a5c; --n2: #2f5285; --n3: #4a73ad; --n4: #7fa2d8; --n5: #b8cdf0; }
+        .carte-chaleur { display: grid; grid-template-columns: 4.5rem repeat(13, minmax(0, 1fr)); gap: 3px; }
+        .carte-chaleur .case { aspect-ratio: 1.25; border-radius: 4px; position: relative; outline-offset: 2px; }
+        .carte-chaleur .case:hover, .carte-chaleur .case:focus-visible { outline: 2px solid var(--texte); z-index: 1; }
+        .info-bulle { position: fixed; pointer-events: none; z-index: 60; background: #0f1726; color: #fff; font-size: .75rem; padding: .4rem .6rem; border-radius: .4rem; white-space: nowrap; }
+        @media (max-width: 640px) { .carte-chaleur { grid-template-columns: 2.6rem repeat(13, minmax(0, 1fr)); gap: 2px; } .carte-chaleur .case { aspect-ratio: .8; } }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
+
+    <main class="max-w-6xl mx-auto p-4 md:p-6 space-y-5">
+        <div>
+            <h1 class="text-2xl md:text-3xl text-slate-800">Heures chargées</h1>
+            <p class="text-sm text-slate-500 mt-1">Quand le matériel manque, et lequel. De quoi décider quoi acheter, chiffres à l'appui.</p>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+            <select id="semaines" class="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white" aria-label="Période">
+                <option value="4">4 dernières semaines</option>
+                <option value="8" selected>8 dernières semaines</option>
+                <option value="12">12 dernières semaines</option>
+                <option value="26">6 derniers mois</option>
+            </select>
+            <select id="categorie" class="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white" aria-label="Catégorie"></select>
+        </div>
+
+        <section id="constat" class="rounded-xl p-5 text-white bande-admin"></section>
+
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+            <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+                <div>
+                    <h2 class="font-semibold text-slate-800 text-lg">Matériel sorti par jour et par heure</h2>
+                    <p class="text-xs text-slate-500">Nombre moyen d'équipements dehors chaque semaine sur ce créneau. Survolez une case pour le détail.</p>
+                </div>
+                <div class="flex items-center gap-2 text-xs text-slate-500" aria-hidden="true">
+                    <span>Peu</span>
+                    <span class="flex gap-0.5"><span class="w-4 h-3 rounded-sm" style="background:var(--n1)"></span><span class="w-4 h-3 rounded-sm" style="background:var(--n2)"></span><span class="w-4 h-3 rounded-sm" style="background:var(--n3)"></span><span class="w-4 h-3 rounded-sm" style="background:var(--n4)"></span><span class="w-4 h-3 rounded-sm" style="background:var(--n5)"></span></span>
+                    <span>Beaucoup</span>
+                </div>
+            </div>
+            <div id="carte" class="carte-chaleur" role="table" aria-label="Matériel sorti par jour et par heure"></div>
+            <details class="mt-4 text-sm">
+                <summary class="cursor-pointer text-blue-600">Voir les chiffres en tableau</summary>
+                <div class="overflow-x-auto mt-2"><table id="tableau" class="text-xs w-full"></table></div>
+            </details>
+        </section>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                <h2 class="font-semibold text-slate-800 text-lg">Équipements les plus tendus</h2>
+                <p class="text-xs text-slate-500 mb-4">Part des heures d'ouverture (lundi–samedi, 7 h–20 h) où l'équipement était sorti.</p>
+                <div id="tensions" class="space-y-3"></div>
+            </section>
+            <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                <h2 class="font-semibold text-slate-800 text-lg">Quand il n'en restait plus</h2>
+                <p class="text-xs text-slate-500 mb-4">Créneaux où tous les équipements d'une catégorie étaient sortis en même temps.</p>
+                <div id="manques" class="space-y-3"></div>
+            </section>
+        </div>
+    </main>
+    <div id="bulle" class="info-bulle hidden" role="tooltip"></div>
+
+    <script>
+        const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+        const JOURS_COURTS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+        const H0 = 7;
+        const nombre = v => String(v).replace('.', ',');
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initPage({ type: 'AGENT', admin: true, page: 'affluence' });
+            const categories = await appelApi('/categories');
+            document.getElementById('categorie').innerHTML = '<option value="">Toutes les catégories</option>' +
+                categories.map(c => `<option value="${c.id}">${echapper(c.nom.charAt(0) + c.nom.slice(1).toLowerCase())}</option>`).join('');
+            ['semaines', 'categorie'].forEach(id => document.getElementById(id).addEventListener('change', charger));
+            charger();
+        });
+
+        async function charger() {
+            const semaines = document.getElementById('semaines').value, cat = document.getElementById('categorie').value;
+            const a = await appelApi(`/statistiques/affluence?semaines=${semaines}${cat ? `&categorieId=${cat}` : ''}`);
+            if (!a || !a.grille) return;
+            afficherConstat(a);
+            afficherCarte(a);
+            afficherTensions(a.tensions);
+            afficherManques(a.manques);
+        }
+
+        function afficherConstat(a) {
+            const periode = a.semaines === 26 ? 'les 6 derniers mois' : `les ${a.semaines} dernières semaines`;
+            const manque = a.manques[0];
+            document.getElementById('constat').innerHTML = !a.sorties
+                ? `<p class="text-lg font-semibold">Pas encore assez d'emprunts sur ${periode} pour dégager une tendance.</p>`
+                : `<p class="text-sm" style="color:#b9c6da">Sur ${periode}${a.categorie ? `, catégorie ${echapper(a.categorie.toLowerCase())}` : ''} : ${pluriel(a.sorties, 'sortie')}${a.demandesTransfert ? `, ${pluriel(a.demandesTransfert, 'demande')} de transfert` : ''}.</p>
+                   <p class="text-xl md:text-2xl font-semibold mt-1">${echapper(a.pic || '')}</p>
+                   ${manque ? `<p class="text-sm mt-2" style="color:#ffd9a8">À envisager : un équipement de plus en ${echapper(manque.categorie.toLowerCase())}, tous sortis en même temps sur ${pluriel(manque.creneauxSatures, 'créneau', 'créneaux')}.</p>` : ''}`;
+        }
+
+        function niveau(v, max) {
+            if (!v) return 'var(--n0)';
+            const n = Math.min(5, Math.max(1, Math.ceil(v / max * 5)));
+            return `var(--n${n})`;
+        }
+
+        function afficherCarte(a) {
+            const carte = document.getElementById('carte');
+            const heures = a.grille[0].length;
+            let html = '<span></span>' + Array.from({ length: heures }, (_, k) =>
+                `<span class="text-[10px] text-slate-500 text-center self-end" role="columnheader">${(k + H0) % 2 === 1 ? '' : (k + H0) + 'h'}</span>`).join('');
+            a.grille.forEach((ligne, j) => {
+                html += `<span class="text-xs text-slate-600 self-center" role="rowheader"><span class="hidden sm:inline">${JOURS[j]}</span><span class="sm:hidden">${JOURS_COURTS[j]}</span></span>`;
+                html += ligne.map((v, k) => `<span class="case" tabindex="0" role="cell" style="background:${niveau(v, a.max)}"
+                    data-texte="${JOURS[j]} ${k + H0} h–${k + H0 + 1} h : ${v ? nombre(v) + ' équipement' + (v >= 2 ? 's' : '') + ' en moyenne' : 'rien de sorti'}"
+                    aria-label="${JOURS[j]} ${k + H0} heures : ${nombre(v)}"></span>`).join('');
+            });
+            carte.innerHTML = html;
+            const bulle = document.getElementById('bulle');
+            carte.querySelectorAll('.case').forEach(c => {
+                const montrer = e => {
+                    bulle.textContent = c.dataset.texte; bulle.classList.remove('hidden');
+                    const r = c.getBoundingClientRect();
+                    bulle.style.left = Math.min(window.innerWidth - bulle.offsetWidth - 8, Math.max(8, r.left + r.width / 2 - bulle.offsetWidth / 2)) + 'px';
+                    bulle.style.top = (r.top - bulle.offsetHeight - 6) + 'px';
+                };
+                c.addEventListener('mouseenter', montrer); c.addEventListener('focus', montrer);
+                c.addEventListener('mouseleave', () => bulle.classList.add('hidden')); c.addEventListener('blur', () => bulle.classList.add('hidden'));
+            });
+            document.getElementById('tableau').innerHTML =
+                `<thead><tr><th class="text-left p-1"></th>${Array.from({ length: heures }, (_, k) => `<th class="p-1 text-slate-500 font-medium">${k + H0}h</th>`).join('')}</tr></thead>
+                 <tbody>${a.grille.map((l, j) => `<tr class="border-t border-slate-100"><th class="text-left p-1 text-slate-600 font-medium">${JOURS_COURTS[j]}</th>${l.map(v => `<td class="p-1 text-center text-slate-700">${v ? nombre(v) : '·'}</td>`).join('')}</tr>`).join('')}</tbody>`;
+        }
+
+        function afficherTensions(liste) {
+            const zone = document.getElementById('tensions');
+            if (!liste.length) { zone.innerHTML = etatVide('Aucun emprunt sur la période.'); return; }
+            zone.innerHTML = liste.map(t => `
+                <a href="fiche-materiel.html?id=${t.materielId}" class="block text-sm" style="text-decoration:none">
+                    <div class="flex justify-between gap-3">
+                        <span class="text-slate-800 font-medium">${echapper(t.designation)} <span class="text-xs font-normal text-slate-500">${echapper(t.code)}</span></span>
+                        <span class="font-semibold text-slate-800 whitespace-nowrap">${t.tauxOccupation} %</span>
+                    </div>
+                    <div class="h-1.5 rounded mt-1" style="background:var(--n0)"><div class="h-1.5 rounded" style="width:${Math.max(2, t.tauxOccupation)}%;background:var(--n5)"></div></div>
+                    <div class="text-[11px] text-slate-500 mt-1">${pluriel(t.sorties, 'sortie')}${t.demandesTransfert ? ` · ${pluriel(t.demandesTransfert, 'demande')} à un autre délégué` : ''}</div>
+                </a>`).join('');
+        }
+
+        function afficherManques(liste) {
+            const zone = document.getElementById('manques');
+            if (!liste.length) { zone.innerHTML = etatVide('Il est toujours resté au moins un équipement de chaque catégorie.'); return; }
+            zone.innerHTML = liste.map(m => `
+                <div class="p-3 rounded-lg border border-amber-200 bg-amber-50 text-sm">
+                    <div class="font-semibold text-slate-800">${echapper(m.categorie.charAt(0) + m.categorie.slice(1).toLowerCase())} : ${pluriel(m.creneauxSatures, 'heure', 'heures')} sans aucun équipement libre</div>
+                    <div class="text-xs text-slate-600 mt-0.5">Les ${m.equipements} équipement${m.equipements > 1 ? 's' : ''} étaient tous sortis, par exemple le ${echapper(m.exemple)}.</div>
+                </div>`).join('');
+        }
+    </script>
+</body>
+</html>

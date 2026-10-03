@@ -153,3 +153,29 @@ a.text-blue-600:not([class*="bg-"]):hover, a.text-blue-700:not([class*="bg-"]):h
 @media (prefers-reduced-motion: reduce) { .point-direct { animation: none; } }
 .carte-scan { background: var(--lbs-marine); transition: background .15s; } .carte-scan:hover { background: var(--lbs-marine-profond); }
 html.dark .bg-blue-700 { background-color: #8fb0e6 !important; } html.dark .bg-blue-400 { background-color: #4f74a8 !important; }
+
+/* Bouton WhatsApp */
+.bouton-whatsapp { display: inline-flex; align-items: center; gap: .35rem; font-size: .75rem; font-weight: 600; color: #fff; background: #1f8f4e; padding: .4rem .65rem; border-radius: .5rem; white-space: nowrap; }
+.bouton-whatsapp:hover { background: #18773f; }
+.bouton-whatsapp.compact { padding: .4rem; }
+
+/* Photos */
+.vignette { position: relative; aspect-ratio: 1; border-radius: .6rem; overflow: hidden; background: var(--fond); border: 1px solid var(--ligne); }
+.vignette img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
+.vignette .retirer { position: absolute; top: .3rem; right: .3rem; width: 1.6rem; height: 1.6rem; border-radius: 999px; background: rgba(15,23,38,.75); color: #fff; font-size: .9rem; line-height: 1; display: grid; place-items: center; }
+.photo-mini { width: 3.25rem; height: 3.25rem; border-radius: .5rem; object-fit: cover; border: 1px solid var(--ligne); cursor: zoom-in; background: var(--fond); }
+.photo-vide { width: 3.25rem; height: 3.25rem; border-radius: .5rem; border: 1px dashed var(--ligne); display: grid; place-items: center; color: var(--texte-doux); }
+
+/* Photos du matériel */
+.grille-photos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+@media (min-width: 640px) { .grille-photos { grid-template-columns: repeat(6, minmax(0, 1fr)); } .zone-photos .grille-photos, .fiche-photos .grille-photos { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.case-photo { position: relative; aspect-ratio: 1; border-radius: .6rem; overflow: hidden; border: 1px solid var(--ligne); background: var(--fond); }
+.case-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.case-ajout { display: flex; flex-direction: column; align-items: center; justify-content: center; border-style: dashed; color: var(--texte-doux); cursor: pointer; }
+.case-ajout:hover, .case-ajout:focus-within { border-color: var(--lbs-marine); color: var(--lbs-marine); }
+.suppr-photo { position: absolute; top: .25rem; right: .25rem; width: 1.6rem; height: 1.6rem; border-radius: 999px; background: rgba(10,18,32,.7); color: #fff; font-size: 1rem; line-height: 1; opacity: 0; transition: opacity .15s; }
+.case-photo:hover .suppr-photo, .suppr-photo:focus-visible { opacity: 1; }
+@media (hover: none) { .suppr-photo { opacity: 1; } }
+.vignette-materiel { width: 3.25rem; height: 3.25rem; border-radius: .5rem; overflow: hidden; border: 1px solid var(--ligne); background: var(--fond); display: grid; place-items: center; color: var(--texte-doux); }
+.vignette-materiel img { width: 100%; height: 100%; object-fit: cover; }
+.vignette-materiel { position: relative; cursor: pointer; } .vignette-materiel:hover { border-color: var(--lbs-marine); } .nb-photos { position: absolute; right: .15rem; bottom: .15rem; min-width: 1.1rem; padding: 0 .25rem; border-radius: 999px; background: rgba(10,18,32,.75); color: #fff; font-size: .65rem; font-weight: 700; line-height: 1.1rem; text-align: center; }

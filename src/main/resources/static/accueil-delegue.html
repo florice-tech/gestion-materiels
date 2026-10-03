@@ -28,6 +28,8 @@
             <span class="block text-sm" style="color:#c9d6ea">Pour le récupérer, le rendre ou demander à quelqu'un de vous le passer.</span></span>
         </a>
 
+        <section id="zoneConfiance" class="hidden bg-white rounded-xl border border-slate-200 shadow-sm p-5"></section>
+
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
             <!-- En ce moment -->
             <section class="lg:col-span-3 bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -81,8 +83,15 @@
         });
 
         async function charger() {
-            const [resultat, transferts, materiels] = await Promise.all([
-                appelApi('/emprunts/mes-emprunts'), appelApi('/transferts'), appelApi('/materiels')]);
+            const [resultat, transferts, materiels, confiance] = await Promise.all([
+                appelApi('/emprunts/mes-emprunts'), appelApi('/transferts'), appelApi('/materiels'), appelApi('/confiance/moi')]);
+            if (confiance && confiance.delegueId) {
+                const zone = document.getElementById('zoneConfiance');
+                zone.innerHTML = carteConfianceHtml(confiance)
+                    + (confiance.telephone ? '' : `<p class="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-100">Ajoutez votre numéro WhatsApp dans <a href="mon-compte.html" class="text-blue-600">Mon compte</a> pour recevoir les rappels du poste.</p>`);
+                zone.classList.toggle('border-red-200', confiance.bloque);
+                zone.classList.remove('hidden');
+            }
             emprunts = resultat.success ? resultat.data : [];
             afficherTransferts(transferts.success ? transferts.recus.filter(t => t.statut === 'EN_ATTENTE') : []);
             const enMain = lignesEnMain();

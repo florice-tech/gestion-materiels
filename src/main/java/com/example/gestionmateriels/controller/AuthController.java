@@ -89,8 +89,23 @@ public class AuthController {
     @PostMapping("/inscription")
     public ResponseEntity<Map<String, Object>> inscrire(@RequestBody InscriptionDelegueRequest requete) {
         compteService.inscrireDelegue(requete.nom(), requete.filiereNiveau(),
-                requete.identifiant(), requete.motDePasse());
+                requete.identifiant(), requete.motDePasse(), requete.telephone());
         return Reponses.ok("Compte créé avec succès. Vous pouvez maintenant vous connecter.");
+    }
+
+    public record TelephoneRequest(String telephone) {
+    }
+
+    /** Le délégué enregistre son numéro WhatsApp (pour être prévenu en cas de retard). */
+    @PutMapping("/telephone")
+    public ResponseEntity<Map<String, Object>> telephone(@AuthenticationPrincipal UtilisateurConnecte moi,
+                                                         @RequestBody TelephoneRequest requete) {
+        if (!moi.estDelegue()) {
+            return Reponses.negatif("Réservé aux délégués.");
+        }
+        var d = compteService.changerTelephone(moi.getId(), requete.telephone());
+        return Reponses.ok(d.getTelephone() == null ? "Numéro supprimé." : "Numéro WhatsApp enregistré.",
+                "telephone", d.getTelephone() == null ? "" : d.getTelephone());
     }
 
     @PostMapping("/mot-de-passe")

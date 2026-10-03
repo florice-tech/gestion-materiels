@@ -13,9 +13,20 @@ import org.springframework.web.bind.annotation.RestController;
 public class StatistiqueController {
 
     private final StatistiqueService statistiqueService;
+    private final com.example.gestionmateriels.service.AffluenceService affluenceService;
 
-    public StatistiqueController(StatistiqueService statistiqueService) {
+    public StatistiqueController(StatistiqueService statistiqueService,
+                                 com.example.gestionmateriels.service.AffluenceService affluenceService) {
         this.statistiqueService = statistiqueService;
+        this.affluenceService = affluenceService;
+    }
+
+    /** Administrateur : heures chargées et équipements les plus tendus. */
+    @GetMapping("/affluence")
+    public com.example.gestionmateriels.service.AffluenceService.Affluence affluence(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "8") int semaines,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) Long categorieId) {
+        return affluenceService.calculer(semaines, categorieId);
     }
 
     @GetMapping

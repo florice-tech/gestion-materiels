@@ -6,6 +6,7 @@ import com.example.gestionmateriels.model.Materiel;
 import com.example.gestionmateriels.repository.CategorieRepository;
 import com.example.gestionmateriels.repository.DetailEmpruntRepository;
 import com.example.gestionmateriels.repository.MaterielRepository;
+import com.example.gestionmateriels.repository.PhotoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,10 +21,12 @@ public class MaterielService {
     private final MaterielRepository materielRepository;
     private final DetailEmpruntRepository detailEmpruntRepository;
     private final CategorieRepository categorieRepository;
+    private final PhotoRepository photoRepository;
 
     public MaterielService(MaterielRepository materielRepository,
                            DetailEmpruntRepository detailEmpruntRepository,
-                           CategorieRepository categorieRepository) {
+                           CategorieRepository categorieRepository, PhotoRepository photoRepository) {
+        this.photoRepository = photoRepository;
         this.materielRepository = materielRepository;
         this.detailEmpruntRepository = detailEmpruntRepository;
         this.categorieRepository = categorieRepository;
@@ -151,6 +154,8 @@ public class MaterielService {
                     "Impossible de supprimer \"" + materiel.getDesignation()
                             + "\" : il figure dans l'historique des emprunts. Passez-le plutôt au statut Hors service.");
         }
+        photoRepository.deleteAll(photoRepository.findByMaterielId(id));
+        photoRepository.flush();
         materielRepository.delete(materiel);
     }
 

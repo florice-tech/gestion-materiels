@@ -38,6 +38,7 @@ public class EmpruntService {
     private final DelegueRepository delegueRepository;
     private final SalleRepository salleRepository;
     private final NotificationService notifications;
+    private final ConfianceService confianceService;
 
     public EmpruntService(EmpruntRepository empruntRepository,
                           DetailEmpruntRepository detailEmpruntRepository,
@@ -45,7 +46,9 @@ public class EmpruntService {
                           AgentRepository agentRepository,
                           DelegueRepository delegueRepository,
                           SalleRepository salleRepository,
-                          NotificationService notifications) {
+                          NotificationService notifications,
+                          ConfianceService confianceService) {
+        this.confianceService = confianceService;
         this.empruntRepository = empruntRepository;
         this.detailEmpruntRepository = detailEmpruntRepository;
         this.materielRepository = materielRepository;
@@ -97,9 +100,7 @@ public class EmpruntService {
         if (jour.isBefore(LocalDate.now()) || jour.atTime(fin).isBefore(LocalDateTime.now())) {
             throw new OperationException("Ce créneau est déjà passé.");
         }
-        if (jour.isAfter(LocalDate.now().plusDays(60))) {
-            throw new OperationException("Les réservations sont possibles jusqu'à 60 jours à l'avance.");
-        }
+        confianceService.verifierReservation(delegue, jour);
 
         Emprunt emprunt = new Emprunt(delegue, salleConnue(salle), fin);
         emprunt.setStatutEmprunt(StatutEmprunt.RESERVEE);

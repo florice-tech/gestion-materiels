@@ -34,13 +34,28 @@ public class CompteService {
     // ---------- Délégués ----------
 
     public Delegue inscrireDelegue(String nom, String filiereNiveau, String identifiant, String motDePasse) {
+        return inscrireDelegue(nom, filiereNiveau, identifiant, motDePasse, null);
+    }
+
+    public Delegue inscrireDelegue(String nom, String filiereNiveau, String identifiant, String motDePasse,
+                                   String telephone) {
         String nomPropre = Verifications.obligatoire(nom, "Le nom est obligatoire.");
         String filiere = Verifications.obligatoire(filiereNiveau, "La filière/niveau est obligatoire.");
         String id = Verifications.identifiantValide(identifiant);
         Verifications.motDePasseValide(motDePasse);
         verifierIdentifiantLibre(id);
 
-        return delegueRepository.save(new Delegue(nomPropre, filiere, id, passwordEncoder.encode(motDePasse)));
+        Delegue delegue = new Delegue(nomPropre, filiere, id, passwordEncoder.encode(motDePasse));
+        delegue.setTelephone(Verifications.telephone(telephone));
+        return delegueRepository.save(delegue);
+    }
+
+    /** Numéro WhatsApp d'un délégué (par lui-même ou par un administrateur). */
+    public Delegue changerTelephone(Long delegueId, String telephone) {
+        Delegue delegue = delegueRepository.findById(delegueId)
+                .orElseThrow(() -> OperationException.introuvable("Délégué introuvable."));
+        delegue.setTelephone(Verifications.telephone(telephone));
+        return delegue;
     }
 
     @Transactional(readOnly = true)

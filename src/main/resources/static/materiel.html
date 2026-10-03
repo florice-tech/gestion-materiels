@@ -16,7 +16,7 @@
         <div class="flex flex-wrap items-end justify-between gap-3">
             <div>
                 <h1 class="text-2xl md:text-3xl text-slate-800">Catalogue de matériel</h1>
-                <p class="text-sm text-slate-500 mt-1">Chaque matériel a son QR code : cliquez dessus pour l'agrandir, le télécharger ou l'imprimer.</p>
+                <p class="text-sm text-slate-500 mt-1">Chaque matériel a son QR code et jusqu'à 6 photos : touchez la vignette pour les voir ou les modifier.</p>
             </div>
             <div class="flex flex-wrap gap-2">
                 <a href="etiquettes.html" class="inline-flex items-center gap-2 border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-2 rounded-lg" style="text-decoration:none" id="lienEtiquettes"></a>
@@ -72,8 +72,12 @@
                                    class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
                         </div>
                     </div>
+                    <div>
+                        <span class="block text-xs font-medium text-slate-600 mb-1">Photos <span class="font-normal text-slate-400">(6 au plus, facultatif)</span></span>
+                        <div id="photosAjout" class="grid grid-cols-3 gap-2"></div>
+                    </div>
                     <div id="messageAjout" class="hidden"></div>
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg text-sm">Ajouter et créer son QR code</button>
+                    <button id="btnAjout" type="submit" class="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-medium py-2.5 rounded-lg text-sm">Ajouter et créer son QR code</button>
                 </form>
             </section>
 
@@ -104,6 +108,8 @@
     <script>
         let categories = [];
         let materiels = [];
+        let photosParMateriel = {};
+        let photosEnAttente = []; // photos choisies avant l'ajout (images réduites, en data URL)
 
         const typeChoisi = () => document.querySelector('input[name=typeGestion]:checked').value;
 
@@ -118,6 +124,7 @@
             ['filtreTexte', 'filtreCategorie', 'filtreStatut'].forEach(id =>
                 document.getElementById(id).addEventListener('input', afficherCatalogue));
             basculerChamps();
+            afficherPhotosAjout();
             await chargerCategories();
             await chargerCatalogue();
             // Arrivée depuis une autre page : ?qr=CODE ouvre directement le QR code
@@ -155,7 +162,9 @@
         }
 
         async function chargerCatalogue() {
-            materiels = await appelApi('/materiels');
+            const [liste, photos] = await Promise.all([appelApi('/materiels'), appelApi('/photos/materiels')]);
+            materiels = liste;
+            photosParMateriel = photos && photos.success !== false ? photos : {};
             afficherResume();
             afficherCatalogue();
         }
@@ -219,7 +228,11 @@
                 const ligne = document.createElement('div');
                 ligne.className = 'grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-2 py-3';
                 ligne.innerHTML = `
-                    <button class="btn-qr qr-mini row-span-2 sm:row-span-1" title="Agrandir le QR code de ${echapper(m.designation)}" aria-label="QR code de ${echapper(m.designation)}"></button>
+                    <div class="row-span-2 sm:row-span-1 flex gap-1.5">
+                        <button class="btn-photos vignette-materiel" title="Photos de ${echapper(m.designation)}" aria-label="Photos de ${echapper(m.designation)}">${
+                            (photosParMateriel[m.id] || []).length ? `<img src="${urlPhoto(photosParMateriel[m.id][0])}" alt="" loading="lazy">${photosParMateriel[m.id].length > 1 ? `<span class="nb-photos">${photosParMateriel[m.id].length}</span>` : ''}` : icone('photo', 'w-5 h-5')}</button>
+                        <button class="btn-qr qr-mini" title="Agrandir le QR code de ${echapper(m.designation)}" aria-label="QR code de ${echapper(m.designation)}"></button>
+                    </div>
                     <div class="min-w-0">
                         <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
                             <a href="fiche-materiel.html?id=${m.id}" class="font-semibold text-slate-800 hover:underline" style="text-decoration:none">${echapper(m.designation)}</a>
@@ -235,6 +248,8 @@
 
                 const qr = ligne.querySelector('.btn-qr');
                 if (m.codeUnique) { dessinerQr(qr, m.codeUnique, 96); qr.addEventListener('click', () => ouvrirQr(m)); }
+                ligne.querySelectorAll('.btn-photos').forEach(b => b.addEventListener('click', () =>
+                    ouvrirPhotos(m, ids => { photosParMateriel[m.id] = ids; afficherCatalogue(); })));
                 const choix = ligne.querySelector('.choix-statut');
                 if (choix) choix.addEventListener('change', () => action(`/materiels/${m.id}/statut`, 'PATCH', { statut: choix.value }));
                 const stock = ligne.querySelector('.btn-stock');
@@ -242,6 +257,28 @@
                 ligne.querySelector('.btn-modifier').addEventListener('click', () => modifier(m));
                 ligne.querySelector('.btn-supprimer').addEventListener('click', () => supprimer(m));
                 conteneur.appendChild(ligne);
+            });
+        }
+
+        function afficherPhotosAjout() {
+            const zone = document.getElementById('photosAjout');
+            zone.innerHTML = photosEnAttente.map((d, i) => `
+                <div class="case-photo"><img src="${d}" alt="Photo ${i + 1}">
+                    <button type="button" data-retirer="${i}" class="suppr-photo" aria-label="Retirer la photo ${i + 1}">×</button></div>`).join('') +
+                (photosEnAttente.length < PHOTOS_MAX ? `<label class="case-photo case-ajout"><input id="choixPhotos" type="file" accept="image/*" multiple class="sr-only">
+                    ${icone('photo', 'w-6 h-6')}<span class="text-[11px] mt-1">${photosEnAttente.length ? 'Ajouter' : 'Choisir'}</span></label>` : '');
+            zone.querySelectorAll('[data-retirer]').forEach(b => b.addEventListener('click', () => {
+                photosEnAttente.splice(parseInt(b.dataset.retirer), 1); afficherPhotosAjout();
+            }));
+            const champ = document.getElementById('choixPhotos');
+            if (champ) champ.addEventListener('change', async () => {
+                const fichiers = [...champ.files].slice(0, PHOTOS_MAX - photosEnAttente.length);
+                for (const f of fichiers) {
+                    try { photosEnAttente.push(await reduireImage(f)); }
+                    catch (err) { afficherMessage('messageAjout', err.message, false); }
+                }
+                if (champ.files.length > fichiers.length) afficherMessage('messageAjout', `${PHOTOS_MAX} photos au plus par matériel : les suivantes n'ont pas été gardées.`, false);
+                afficherPhotosAjout();
             });
         }
 
@@ -254,6 +291,8 @@
                 return;
             }
             const estDurable = typeGestion === 'DURABLE';
+            const bouton = document.getElementById('btnAjout');
+            bouton.disabled = true;
             const resultat = await appelApi('/materiels', {
                 method: 'POST',
                 body: {
@@ -266,9 +305,19 @@
                 }
             });
             afficherMessage('messageAjout', resultat.message, resultat.success);
+            if (!resultat.success) bouton.disabled = false;
             if (resultat.success) {
+                let photosRefusees = 0;
+                for (const donnees of photosEnAttente) {
+                    const r = await appelApi(`/materiels/${resultat.materiel.id}/photos`, { method: 'POST', body: { donnees } });
+                    if (!r.success) photosRefusees++;
+                }
+                if (photosRefusees) afficherMessage('messageAjout', photosRefusees > 1 ? `Matériel ajouté, mais ${photosRefusees} photos n'ont pas pu être enregistrées.` : 'Matériel ajouté, mais une photo n\'a pas pu être enregistrée.', false);
+                photosEnAttente = [];
+                afficherPhotosAjout();
                 document.getElementById('designation').value = '';
                 document.getElementById('codeUnique').value = '';
+                bouton.disabled = false;
                 await chargerCatalogue();
                 ouvrirQr(resultat.materiel, 'Matériel ajouté : voici son QR code');
             }

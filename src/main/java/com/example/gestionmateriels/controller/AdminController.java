@@ -73,6 +73,13 @@ public class AdminController {
         return Reponses.ok(delegue.isActif() ? "Compte réactivé." : "Compte désactivé.", "delegue", delegue);
     }
 
+    @PatchMapping("/delegues/{id}/telephone")
+    public ResponseEntity<Map<String, Object>> telephoneDelegue(@PathVariable Long id,
+                                                                @RequestBody AuthController.TelephoneRequest requete) {
+        Delegue d = compteService.changerTelephone(id, requete.telephone());
+        return Reponses.ok("Numéro enregistré.", "delegue", d);
+    }
+
     @PostMapping("/delegues/{id}/mot-de-passe")
     public ResponseEntity<Map<String, Object>> motDePasseDelegue(@PathVariable Long id,
                                                                  @RequestBody MotDePasseRequest requete) {

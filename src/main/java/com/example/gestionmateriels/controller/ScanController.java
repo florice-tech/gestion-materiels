@@ -42,7 +42,7 @@ public class ScanController {
     @PostMapping("/{code}/rendre")
     public ResponseEntity<Map<String, Object>> rendre(@AuthenticationPrincipal UtilisateurConnecte moi,
                                                       @PathVariable String code, @RequestBody ScanRequest r) {
-        scanService.rendre(code, moi.getId(), Boolean.TRUE.equals(r.probleme()), r.remarque());
+        scanService.rendre(code, moi.getId(), Boolean.TRUE.equals(r.probleme()), r.remarque(), r.photo());
         return Reponses.ok(Boolean.TRUE.equals(r.probleme())
                 ? "Retour enregistré. Le problème a été signalé aux agents."
                 : "Retour enregistré. Merci !");

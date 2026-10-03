@@ -90,6 +90,10 @@ const ICONES = {
     lune: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/>',
     soleil: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
     menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+    ecran: '<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
+    affluence: '<rect x="3" y="3" width="5" height="5" rx="1"/><rect x="10" y="3" width="5" height="5" rx="1"/><rect x="17" y="3" width="4" height="5" rx="1"/><rect x="3" y="10" width="5" height="5" rx="1"/><rect x="10" y="10" width="5" height="5" rx="1"/><rect x="3" y="17" width="5" height="4" rx="1"/>',
+    salle: '<path d="M3 21h18M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17"/><path d="M14 12h.01"/>',
+    photo: '<path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.5"/>',
     sortie: '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5M15 12H3"/>'
 };
 
@@ -104,7 +108,8 @@ const NAVIGATION = {
             { cle: 'tableau', texte: 'Tableau de bord', lien: 'accueil-agent.html', icone: 'tableau' },
             { cle: 'demandes', texte: 'Demandes et réservations', lien: 'emprunt.html', icone: 'demandes' },
             { cle: 'retours', texte: 'Retours', lien: 'retour.html', icone: 'retours' },
-            { cle: 'scan', texte: 'Scanner un matériel', lien: 'scan.html', icone: 'scan' }
+            { cle: 'scan', texte: 'Scanner un matériel', lien: 'scan.html', icone: 'scan' },
+            { cle: 'kiosque', texte: 'Écran du poste', lien: 'kiosque.html', icone: 'ecran' }
         ] },
         { groupe: 'Matériel', liens: [
             { cle: 'catalogue', texte: 'Catalogue', lien: 'materiel.html', icone: 'catalogue' },
@@ -113,7 +118,8 @@ const NAVIGATION = {
         ] },
         { groupe: 'Administration', liens: [
             { cle: 'parametres', texte: 'Salles et catégories', lien: 'parametres.html', icone: 'parametres' },
-            { cle: 'comptes', texte: 'Comptes', lien: 'comptes.html', icone: 'comptes', admin: true }
+            { cle: 'comptes', texte: 'Comptes et confiance', lien: 'comptes.html', icone: 'comptes', admin: true },
+            { cle: 'affluence', texte: 'Heures chargées', lien: 'affluence.html', icone: 'affluence', admin: true }
         ] }
     ],
     DELEGUE: [
@@ -636,4 +642,217 @@ function momentCourt(iso) {
         jour: memeJour(d, auj) ? 'auj.' : memeJour(d, hier) ? 'hier' : d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
         heure: d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
     };
+}
+
+// ---------------------------------------------------------------------------
+// WhatsApp, confiance, photos
+// ---------------------------------------------------------------------------
+
+/** Lien WhatsApp avec le message déjà écrit (aucun abonnement : wa.me ouvre l'appli). */
+function lienWhatsApp(telephone, message) {
+    return `https://wa.me/${encodeURIComponent(telephone)}?text=${encodeURIComponent(message)}`;
+}
+
+/** Message de rappel poli, adapté au retard ou à l'échéance proche. */
+function messageRappel({ delegue, designation, code, heure, enRetard }) {
+    const prenom = (delegue || '').split(/\s+/)[0];
+    const quoi = `${designation}${code ? ` (${code})` : ''}`;
+    return enRetard
+        ? `Bonjour ${prenom}, ici le poste de surveillance de Lomé Business School. Le matériel ${quoi} était attendu${heure ? ` à ${heure}` : ''}. Merci de le rapporter au poste dès que possible.`
+        : `Bonjour ${prenom}, ici le poste de surveillance de Lomé Business School. Petit rappel : le matériel ${quoi} est à rendre${heure ? ` avant ${heure}` : ''}. Merci !`;
+}
+
+/** Bouton WhatsApp (vert) ou rien si le délégué n'a pas donné de numéro. */
+function boutonWhatsApp(telephone, message, compact) {
+    if (!telephone) return '';
+    return `<a href="${lienWhatsApp(telephone, message)}" target="_blank" rel="noopener" class="bouton-whatsapp ${compact ? 'compact' : ''}" title="Prévenir sur WhatsApp" style="text-decoration:none">
+        <svg viewBox="0 0 24 24" class="w-4 h-4" aria-hidden="true" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 11.9 11.9 0 0 0 4.6 4c1.7.7 2.4.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z"/></svg>
+        ${compact ? '<span class="sr-only">WhatsApp</span>' : 'WhatsApp'}</a>`;
+}
+
+const NIVEAUX_CONFIANCE = {
+    FIABLE: { texte: 'Fiable', classe: 'bg-green-100 text-green-700' },
+    BON: { texte: 'Bon', classe: 'bg-blue-100 text-blue-700' },
+    A_SURVEILLER: { texte: 'À surveiller', classe: 'bg-amber-100 text-amber-800' },
+    NOUVEAU: { texte: 'Nouveau', classe: 'bg-slate-100 text-slate-600' }
+};
+
+function badgeConfiance(c) {
+    if (!c) return '';
+    if (c.bloque) return badge({ texte: 'Réservations en pause', classe: 'bg-red-100 text-red-700' });
+    const n = NIVEAUX_CONFIANCE[c.niveau];
+    return badge({ texte: n.texte, classe: n.classe });
+}
+
+function urlPhoto(id) {
+    return `/api/photos/${id}`;
+}
+
+/** Réduit une photo dans le navigateur (1280 px au plus, JPEG) avant l'envoi : rapide même en 3G. */
+function reduireImage(fichier, cote = 1280, qualite = 0.82) {
+    return new Promise((resolve, reject) => {
+        if (!fichier.type.startsWith('image/')) { reject(new Error('Ce fichier n\'est pas une image.')); return; }
+        const lecteur = new FileReader();
+        lecteur.onerror = () => reject(new Error('Lecture de la photo impossible.'));
+        lecteur.onload = () => {
+            const img = new Image();
+            img.onerror = () => reject(new Error('Photo illisible.'));
+            img.onload = () => {
+                const echelle = Math.min(1, cote / Math.max(img.width, img.height));
+                const toile = document.createElement('canvas');
+                toile.width = Math.round(img.width * echelle);
+                toile.height = Math.round(img.height * echelle);
+                const ctx = toile.getContext('2d');
+                ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, toile.width, toile.height);
+                ctx.drawImage(img, 0, 0, toile.width, toile.height);
+                resolve(toile.toDataURL('image/jpeg', qualite));
+            };
+            img.src = lecteur.result;
+        };
+        lecteur.readAsDataURL(fichier);
+    });
+}
+
+/** Visionneuse plein écran pour une série de photos. */
+function ouvrirVisionneuse(ids, depart = 0) {
+    let i = depart;
+    const fond = document.createElement('div');
+    fond.className = 'fixed inset-0 z-50 flex items-center justify-center p-4';
+    fond.style.background = 'rgba(10,18,32,.92)';
+    fond.setAttribute('role', 'dialog'); fond.setAttribute('aria-modal', 'true');
+    fond.innerHTML = `
+        <img class="max-w-full max-h-[85vh] rounded-lg shadow-2xl" alt="Photo">
+        <button data-f class="absolute top-4 right-4 text-white text-sm px-3 py-2 rounded-lg" style="background:rgba(255,255,255,.12)">Fermer</button>
+        ${ids.length > 1 ? `<button data-p class="absolute left-3 top-1/2 -translate-y-1/2 text-white text-2xl w-11 h-11 rounded-full" style="background:rgba(255,255,255,.12)" aria-label="Précédente">‹</button>
+        <button data-n class="absolute right-3 top-1/2 -translate-y-1/2 text-white text-2xl w-11 h-11 rounded-full" style="background:rgba(255,255,255,.12)" aria-label="Suivante">›</button>
+        <span data-c class="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-xs"></span>` : ''}`;
+    const img = fond.querySelector('img');
+    const montrer = () => { img.src = urlPhoto(ids[i]); const c = fond.querySelector('[data-c]'); if (c) c.textContent = `${i + 1} / ${ids.length}`; };
+    const fermer = () => { fond.remove(); document.removeEventListener('keydown', clavier); };
+    const aller = d => { i = (i + d + ids.length) % ids.length; montrer(); };
+    const clavier = e => { if (e.key === 'Escape') fermer(); if (e.key === 'ArrowLeft') aller(-1); if (e.key === 'ArrowRight') aller(1); };
+    fond.addEventListener('click', e => { if (e.target === fond) fermer(); });
+    fond.querySelector('[data-f]').addEventListener('click', fermer);
+    fond.querySelector('[data-p]')?.addEventListener('click', () => aller(-1));
+    fond.querySelector('[data-n]')?.addEventListener('click', () => aller(1));
+    document.addEventListener('keydown', clavier);
+    document.body.appendChild(fond);
+    montrer();
+}
+
+/** Carte « Ma confiance » du délégué : jauge, badge, détail et ce que ça lui permet. */
+function carteConfianceHtml(c) {
+    const n = NIVEAUX_CONFIANCE[c.niveau];
+    const score = c.score ?? 0;
+    const couleur = c.bloque ? '#a3141c' : c.niveau === 'FIABLE' ? '#1f7a4d' : c.niveau === 'A_SURVEILLER' ? '#d99a2b' : '#22406e';
+    const tour = 2 * Math.PI * 34;
+    const avantage = c.bloque ? c.motifBlocage
+        : c.niveau === 'FIABLE' ? 'Badge « Fiable » : vous pouvez réserver jusqu\'à 60 jours à l\'avance.'
+        : c.niveau === 'NOUVEAU' ? 'Rendez votre matériel à l\'heure : après 3 retours parfaits, vous obtenez le badge « Fiable ».'
+        : c.niveau === 'A_SURVEILLER' ? `Trop de retards : réservations limitées à ${c.delaiReservationJours} jours à l'avance.`
+        : `Encore quelques retours à l'heure pour le badge « Fiable » (réservations à 60 jours).`;
+    return `
+        <div class="flex items-center gap-4">
+            <svg viewBox="0 0 80 80" class="w-20 h-20 shrink-0" role="img" aria-label="Score ${c.score ?? 'non calculé'} sur 100">
+                <circle cx="40" cy="40" r="34" fill="none" stroke="var(--ligne)" stroke-width="7"/>
+                <circle cx="40" cy="40" r="34" fill="none" stroke="${couleur}" stroke-width="7" stroke-linecap="round"
+                        stroke-dasharray="${tour}" stroke-dashoffset="${tour * (1 - score / 100)}" transform="rotate(-90 40 40)"/>
+                <text x="40" y="45" text-anchor="middle" font-size="18" font-weight="700" fill="currentColor">${c.score ?? '—'}</text>
+            </svg>
+            <div class="min-w-0 space-y-1">
+                <div class="flex flex-wrap items-center gap-2"><span class="font-semibold text-slate-800">Score de confiance</span>${badgeConfiance(c)}</div>
+                <p class="text-xs text-slate-500">${c.retours ? `${pluriel(c.retours, 'retour')} sur 90 jours : ${c.aLHeure} à l'heure, ${c.enRetard} en retard${c.endommages ? `, ${c.endommages} endommagé${c.endommages > 1 ? 's' : ''}` : ''}.` : 'Pas encore de retour enregistré.'}</p>
+                <p class="text-sm ${c.bloque ? 'text-red-700 font-medium' : 'text-slate-700'}">${echapper(avantage)}</p>
+            </div>
+        </div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Photos du matériel : grille de 6 emplacements (ajouter, agrandir, supprimer)
+// ---------------------------------------------------------------------------
+
+const PHOTOS_MAX = 6;
+
+/**
+ * Affiche et gère les photos d'un matériel dans `conteneur`.
+ * options.modifiable : boutons d'ajout et de suppression (agents) ; options.apresChangement(ids)
+ */
+async function gestionnairePhotos(conteneur, materielId, options = {}) {
+    const modifiable = options.modifiable !== false;
+    let ids = await appelApi(`/materiels/${materielId}/photos`);
+    if (!Array.isArray(ids)) ids = [];
+
+    const message = texte => {
+        let zone = conteneur.querySelector('.message-photos');
+        if (!zone) return;
+        zone.textContent = texte || '';
+        zone.classList.toggle('hidden', !texte);
+    };
+
+    const rendre = () => {
+        const cases = ids.map((id, i) => `
+            <div class="case-photo group">
+                <button type="button" data-voir="${i}" class="w-full h-full" aria-label="Agrandir la photo ${i + 1}"><img src="${urlPhoto(id)}" alt="" loading="lazy"></button>
+                ${modifiable ? `<button type="button" data-suppr="${id}" class="suppr-photo" aria-label="Supprimer la photo ${i + 1}" title="Supprimer">×</button>` : ''}
+            </div>`).join('');
+        const ajout = modifiable && ids.length < PHOTOS_MAX ? `
+            <label class="case-photo case-ajout" title="Ajouter des photos">
+                <input type="file" accept="image/*" multiple class="sr-only">
+                ${icone('photo', 'w-6 h-6')}<span class="text-[11px] mt-1">Ajouter</span>
+            </label>` : '';
+        conteneur.innerHTML = `
+            <div class="grille-photos">${cases}${ajout}</div>
+            <p class="text-xs text-slate-500 mt-2">${ids.length
+                ? `${pluriel(ids.length, 'photo')} sur ${PHOTOS_MAX}${modifiable && ids.length < PHOTOS_MAX ? ' · vous pouvez en ajouter ' + (PHOTOS_MAX - ids.length) : ''}.`
+                : modifiable ? `Aucune photo. Ajoutez-en jusqu'à ${PHOTOS_MAX} pour que chacun reconnaisse ce matériel.` : 'Pas encore de photo.'}</p>
+            <p class="message-photos hidden text-xs text-red-700 mt-1"></p>`;
+
+        conteneur.querySelectorAll('[data-voir]').forEach(b => b.addEventListener('click', () => ouvrirVisionneuse(ids, parseInt(b.dataset.voir))));
+        conteneur.querySelectorAll('[data-suppr]').forEach(b => b.addEventListener('click', async () => {
+            if (!await confirmer('Supprimer la photo', 'Cette photo sera retirée de la fiche du matériel.', 'Supprimer', true)) return;
+            const r = await appelApi(`/photos/${b.dataset.suppr}`, { method: 'DELETE' });
+            if (!r.success) { message(r.message); return; }
+            ids = ids.filter(x => String(x) !== b.dataset.suppr);
+            rendre(); options.apresChangement?.(ids);
+        }));
+        const champ = conteneur.querySelector('input[type=file]');
+        if (champ) champ.addEventListener('change', async () => {
+            const fichiers = [...champ.files].slice(0, PHOTOS_MAX - ids.length);
+            if (champ.files.length > fichiers.length) message(`Seules ${pluriel(fichiers.length, 'photo')} ont été gardées : ${PHOTOS_MAX} au plus par matériel.`);
+            const ajoutCase = conteneur.querySelector('.case-ajout');
+            if (ajoutCase) ajoutCase.innerHTML = '<span class="text-[11px]">Envoi…</span>';
+            for (const f of fichiers) {
+                try {
+                    const donnees = await reduireImage(f);
+                    const r = await appelApi(`/materiels/${materielId}/photos`, { method: 'POST', body: { donnees } });
+                    if (r.success) ids.push(r.photoId); else { message(r.message); break; }
+                } catch (e) { message(e.message); }
+            }
+            rendre(); options.apresChangement?.(ids);
+        });
+    };
+    rendre();
+    return ids;
+}
+
+/** Fenêtre « Photos de … » ouverte depuis le catalogue. */
+function ouvrirPhotos(materiel, apresChangement) {
+    const fond = document.createElement('div');
+    fond.className = 'fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4';
+    fond.innerHTML = `
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-5 space-y-4" role="dialog" aria-modal="true" aria-labelledby="titrePhotos">
+            <div class="flex items-start justify-between gap-3">
+                <div><h2 id="titrePhotos" class="text-lg font-bold text-slate-800">Photos</h2>
+                    <p class="text-sm text-slate-500">${echapper(materiel.designation)} · ${echapper(materiel.codeUnique || '')}</p></div>
+                <button data-fermer class="text-sm text-slate-500 hover:text-slate-800 px-2 py-1">Fermer</button>
+            </div>
+            <div class="zone-photos"></div>
+        </div>`;
+    const fermer = () => { fond.remove(); document.removeEventListener('keydown', echap); };
+    const echap = e => { if (e.key === 'Escape' && !document.querySelector('[aria-modal][role=dialog] img[alt=Photo]')) fermer(); };
+    fond.addEventListener('click', e => { if (e.target === fond) fermer(); });
+    fond.querySelector('[data-fermer]').addEventListener('click', fermer);
+    document.addEventListener('keydown', echap);
+    document.body.appendChild(fond);
+    gestionnairePhotos(fond.querySelector('.zone-photos'), materiel.id, { apresChangement });
 }

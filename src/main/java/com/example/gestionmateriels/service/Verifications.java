@@ -28,6 +28,33 @@ final class Verifications {
         }
     }
 
+    /**
+     * Numéro WhatsApp : chiffres seulement, indicatif compris (228 pour le Togo).
+     * « 90 12 34 56 » devient 22890123456 ; vide → null.
+     */
+    static String telephone(String saisie) {
+        String brut = facultatif(saisie);
+        if (brut == null) {
+            return null;
+        }
+        String chiffres = brut.replaceAll("[\\s.()\\-]", "");
+        if (chiffres.startsWith("+")) {
+            chiffres = chiffres.substring(1);
+        } else if (chiffres.startsWith("00")) {
+            chiffres = chiffres.substring(2);
+        }
+        if (!chiffres.matches("\\d+")) {
+            throw new OperationException("Le numéro ne doit contenir que des chiffres (ex. 90 12 34 56).");
+        }
+        if (chiffres.length() == 8) {
+            chiffres = "228" + chiffres; // numéro togolais sans indicatif
+        }
+        if (chiffres.length() < 10 || chiffres.length() > 15) {
+            throw new OperationException("Numéro invalide : 8 chiffres pour un numéro togolais, ou le numéro complet avec l'indicatif.");
+        }
+        return chiffres;
+    }
+
     static String identifiantValide(String identifiant) {
         String id = obligatoire(identifiant, "L'identifiant est obligatoire.");
         if (!id.matches("[A-Za-z0-9._-]{3,50}")) {

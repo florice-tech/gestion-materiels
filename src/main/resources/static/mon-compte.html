@@ -19,6 +19,21 @@
             <dl id="profil" class="grid grid-cols-3 gap-y-2 text-sm"></dl>
         </section>
 
+        <section id="zoneConfiance" class="hidden bg-white p-5 rounded-xl border border-slate-200 shadow-sm"></section>
+
+        <section id="zoneTelephone" class="hidden bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+            <div>
+                <h2 class="font-semibold text-slate-800">Numéro WhatsApp</h2>
+                <p class="text-xs text-slate-500 mt-1">Le poste de surveillance l'utilise seulement pour vous rappeler un matériel à rendre.</p>
+            </div>
+            <form id="formTelephone" class="flex flex-col sm:flex-row gap-2">
+                <input type="tel" id="telephone" placeholder="ex : 90 12 34 56" maxlength="20" inputmode="tel" autocomplete="tel"
+                       class="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" aria-label="Numéro WhatsApp">
+                <button class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm">Enregistrer</button>
+            </form>
+            <div id="messageTelephone" class="hidden"></div>
+        </section>
+
         <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
             <h2 class="font-semibold text-slate-800">Changer mon mot de passe</h2>
             <form id="formMotDePasse" class="space-y-3">
@@ -56,6 +71,24 @@
             ];
             document.getElementById('profil').innerHTML = lignes.map(([cle, valeur]) =>
                 `<dt class="text-slate-500">${cle}</dt><dd class="col-span-2 font-medium text-slate-800">${echapper(valeur)}</dd>`).join('');
+
+            if (moi.type === 'DELEGUE') {
+                const c = await appelApi('/confiance/moi');
+                if (c && c.delegueId) {
+                    const zone = document.getElementById('zoneConfiance');
+                    zone.innerHTML = carteConfianceHtml(c);
+                    zone.classList.remove('hidden');
+                    const tel = c.telephone || '';
+                    document.getElementById('telephone').value = tel.startsWith('228') && tel.length === 11
+                        ? tel.slice(3).replace(/(\d{2})(?=\d)/g, '$1 ') : tel;
+                }
+                document.getElementById('zoneTelephone').classList.remove('hidden');
+                document.getElementById('formTelephone').addEventListener('submit', async e => {
+                    e.preventDefault();
+                    const r = await appelApi('/auth/telephone', { method: 'PUT', body: { telephone: document.getElementById('telephone').value } });
+                    afficherMessage('messageTelephone', r.message, r.success);
+                });
+            }
 
             document.getElementById('formMotDePasse').addEventListener('submit', async e => {
                 e.preventDefault();

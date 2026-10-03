@@ -24,6 +24,8 @@
             <p class="text-sm text-slate-500 mt-1">Choisissez le jour et le créneau : vous voyez ce qui est déjà pris. Le jour venu, scannez le matériel ou passez au poste pour le retirer.</p>
         </div>
 
+        <div id="infoConfiance" class="hidden"></div>
+
         <form id="formReservation" class="space-y-5">
             <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="col-span-2 md:col-span-1"><label for="jour" class="block text-sm font-medium text-slate-700 mb-1">Jour</label>
@@ -70,7 +72,18 @@
             const demain = new Date(Date.now() + 86400000);
             const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             const jour = document.getElementById('jour');
-            jour.min = iso(new Date()); jour.max = iso(new Date(Date.now() + 60 * 86400000)); jour.value = iso(demain);
+            const confiance = await appelApi('/confiance/moi');
+            const delai = confiance && confiance.delaiReservationJours ? confiance.delaiReservationJours : 30;
+            jour.min = iso(new Date()); jour.max = iso(new Date(Date.now() + delai * 86400000)); jour.value = iso(demain);
+            const info = document.getElementById('infoConfiance');
+            if (confiance && confiance.bloque) {
+                info.className = 'rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm p-3';
+                info.textContent = 'Réservations en pause. ' + confiance.motifBlocage;
+                document.getElementById('btnReserver').disabled = true;
+            } else if (confiance && confiance.delegueId) {
+                info.className = 'rounded-lg border border-slate-200 bg-white text-slate-600 text-sm p-3 flex flex-wrap items-center gap-2';
+                info.innerHTML = `${badgeConfiance(confiance)} <span>Vous pouvez réserver jusqu'à ${delai} jours à l'avance${confiance.niveau === 'FIABLE' ? '.' : ' ; avec le badge « Fiable », c\'est 60 jours.'}</span>`;
+            }
             const salles = await appelApi('/salles');
             document.getElementById('salle').innerHTML = '<option value="">Choisir</option>' +
                 salles.map(s => `<option value="${echapper(s.nom)}">${echapper(s.nom)}</option>`).join('');

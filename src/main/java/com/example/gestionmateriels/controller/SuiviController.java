@@ -36,6 +36,12 @@ public class SuiviController {
         return suiviService.disponibilites(jour);
     }
 
+    // Tous : QR code de la porte d'une salle → matériel présent, réservations du jour
+    @GetMapping("/salles/{id}/situation")
+    public SuiviService.SituationSalle situationSalle(@PathVariable Long id) {
+        return suiviService.situationSalle(id);
+    }
+
     // Adresse à mettre dans les QR codes (sinon l'adresse affichée dans le navigateur)
     @GetMapping("/config")
     public Map<String, Object> config() {

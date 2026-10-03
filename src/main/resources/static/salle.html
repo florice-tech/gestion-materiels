@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="img/logo-lbs-icone.png">
+    <title>Salle - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/commun.js"></script>
+    <link rel="stylesheet" href="css/theme.css">
+</head>
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
+
+    <main class="max-w-3xl mx-auto p-4 md:p-6 space-y-5">
+        <div id="entetSalle">
+            <h1 class="text-2xl md:text-3xl text-slate-800">Salle</h1>
+        </div>
+
+        <a id="lienScan" href="scan.html" class="carte-scan flex items-center gap-4 p-5 rounded-xl text-white shadow-sm" style="text-decoration:none">
+            <span id="iconeScan" class="w-12 h-12 rounded-xl grid place-items-center shrink-0" style="background:rgba(255,255,255,.12)"></span>
+            <span class="min-w-0"><span class="block text-lg font-semibold">Scanner un matériel pour cette salle</span>
+            <span id="texteScan" class="block text-sm" style="color:#c9d6ea">La salle sera déjà remplie.</span></span>
+        </a>
+
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+            <h2 class="font-semibold text-slate-800 text-lg mb-3">Matériel dans la salle</h2>
+            <div id="presents" class="space-y-2"></div>
+        </section>
+
+        <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+            <h2 class="font-semibold text-slate-800 text-lg mb-3">Prévu aujourd'hui</h2>
+            <div id="prevu" class="space-y-2"></div>
+        </section>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const moi = await initPage({ page: '' });
+            document.getElementById('iconeScan').innerHTML = icone('scan', 'w-7 h-7');
+            const id = new URLSearchParams(location.search).get('id');
+            const s = await appelApi(`/salles/${encodeURIComponent(id)}/situation`);
+            if (!s || s.success === false || !s.nom) {
+                document.getElementById('entetSalle').innerHTML = `<div class="bg-white rounded-xl border border-slate-200">${etatVide('Salle introuvable : le QR code est peut-être ancien.')}</div>`;
+                return;
+            }
+            document.title = `Salle ${s.nom} - Gestion Matériel`;
+            // Les prochains scans de cette session proposeront cette salle
+            try { sessionStorage.setItem('salleCourante', s.nom); } catch (e) { /* stockage indisponible */ }
+            document.getElementById('entetSalle').innerHTML = `
+                <p class="text-sm text-slate-500 flex items-center gap-2">${icone('salle', 'w-4 h-4')} Vous êtes dans la salle</p>
+                <h1 class="text-3xl md:text-4xl text-slate-800 mt-1">${/^\d/.test(s.nom) ? "Salle " : ""}${echapper(s.nom)}</h1>`;
+            document.getElementById('lienScan').href = `scan.html?salle=${encodeURIComponent(s.nom)}`;
+            if (moi.type === 'AGENT') {
+                document.getElementById('lienScan').querySelector('.text-lg').textContent = 'Scanner un matériel';
+                document.getElementById('texteScan').textContent = 'Pour voir qui l\'a et son parcours.';
+            }
+            afficherPresents(s.materiels, moi);
+            afficherPrevu(s.reservationsDuJour, s.demandesEnAttente);
+        });
+
+        function afficherPresents(liste, moi) {
+            const zone = document.getElementById('presents');
+            if (!liste.length) { zone.innerHTML = '<p class="text-sm text-slate-500 py-4 text-center">Aucun matériel emprunté pour cette salle en ce moment.</p>'; return; }
+            zone.innerHTML = liste.map(m => {
+                const r = tempsRestant(m.retourPrevu ? `${m.depuis.substring(0, 10)}T${m.retourPrevu}` : null);
+                const retard = m.enRetard || r.retard;
+                const aMoi = moi.type === 'DELEGUE' && m.delegue === moi.nom;
+                return `<div class="flex items-center gap-3 p-3 rounded-lg border ${retard ? 'border-red-200 bg-red-50' : 'border-slate-200'}">
+                    <div class="min-w-0 flex-1">
+                        <div class="font-semibold text-slate-800">${echapper(m.designation)} <span class="text-xs font-normal text-slate-500">${echapper(m.code)}</span></div>
+                        <div class="text-xs ${retard ? 'text-red-700 font-semibold' : 'text-slate-500'}">${aMoi ? 'Sous votre responsabilité' : `Chez ${echapper(m.delegue)} (${echapper(m.filiereNiveau)})`}${m.retourPrevu ? ` · retour ${formaterHeure(m.retourPrevu)}` : ''}${r.texte ? ` (${retard && !r.retard ? 'en retard' : r.texte})` : ''}</div>
+                    </div>
+                    <a href="scan.html?code=${encodeURIComponent(m.code)}" class="shrink-0 text-xs font-semibold px-3 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50" style="text-decoration:none">${aMoi ? 'Rendre' : moi.type === 'DELEGUE' ? 'Le demander' : 'Voir'}</a>
+                </div>`;
+            }).join('');
+        }
+
+        function afficherPrevu(reservations, demandes) {
+            const zone = document.getElementById('prevu');
+            const lignes = [
+                ...reservations.map(e => `<div class="p-3 rounded-lg border border-slate-200">
+                    <div class="text-sm font-semibold text-slate-800">${formaterHeure(e.heureDebut)}–${formaterHeure(e.heureRetourPrevue)} · ${echapper(e.delegue.nom)}</div>
+                    <div class="text-xs text-slate-600">${echapper(resumeArticles(e.details))}</div></div>`),
+                ...demandes.map(e => `<div class="p-3 rounded-lg border border-amber-200 bg-amber-50">
+                    <div class="text-sm font-semibold text-slate-800">Demande de ${echapper(e.delegue.nom)} <span class="font-normal text-amber-800">· à retirer au poste</span></div>
+                    <div class="text-xs text-slate-600">${echapper(resumeArticles(e.details))}</div></div>`)
+            ];
+            zone.innerHTML = lignes.join('') || '<p class="text-sm text-slate-500 py-4 text-center">Rien de prévu pour cette salle aujourd\'hui.</p>';
+        }
+    </script>
+</body>
+</html>

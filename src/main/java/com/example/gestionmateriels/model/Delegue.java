@@ -37,6 +37,14 @@ public class Delegue {
     @Column(nullable = false, updatable = false)
     private LocalDateTime dateCreation;
 
+    // Numéro WhatsApp (facultatif), au format international sans « + » : 22890123456
+    @Column(length = 30)
+    private String telephone;
+
+    // Un agent a levé le blocage des réservations : les retards antérieurs ne bloquent plus
+    @Column(name = "reservations_debloquees_le")
+    private LocalDateTime reservationsDebloqueesLe;
+
     @PrePersist
     protected void onCreate() {
         if (dateCreation == null) {
@@ -71,6 +79,12 @@ public class Delegue {
 
     public boolean isActif() { return actif; }
     public void setActif(boolean actif) { this.actif = actif; }
+
+    public String getTelephone() { return telephone; }
+    public void setTelephone(String telephone) { this.telephone = telephone; }
+
+    public LocalDateTime getReservationsDebloqueesLe() { return reservationsDebloqueesLe; }
+    public void setReservationsDebloqueesLe(LocalDateTime le) { this.reservationsDebloqueesLe = le; }
 
     public LocalDateTime getDateCreation() { return dateCreation; }
     public void setDateCreation(LocalDateTime dateCreation) { this.dateCreation = dateCreation; }

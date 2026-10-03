@@ -43,7 +43,7 @@
     </main>
 
     <script>
-        let moi = null, salles = [], lecteur = null, codeCourant = null;
+        let moi = null, salles = [], lecteur = null, codeCourant = null, photoRetour = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
             moi = await initPage({ page: 'scan' });
@@ -54,6 +54,9 @@
                 ouvrir(document.getElementById('code').value);
             });
             if (moi.type === 'DELEGUE') salles = await appelApi('/salles');
+            // Arrivée depuis le QR code d'une salle : elle sera proposée pour chaque scan
+            const salleParam = new URLSearchParams(location.search).get('salle');
+            if (salleParam) memoriserSalle(salleParam);
             const code = new URLSearchParams(location.search).get('code');
             if (code) ouvrir(code);
         });
@@ -75,7 +78,12 @@
             lecteur = new Html5Qrcode('lecteur');
             try {
                 await lecteur.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 230, height: 230 } },
-                    texte => { arreterCamera(); ouvrir(extraireCode(texte)); }, () => {});
+                    texte => {
+                        arreterCamera();
+                        // QR code d'une porte de salle : on ouvre la page de la salle
+                        if (/salle\.html\?id=/.test(texte)) { location.href = 'salle.html?' + texte.split('?')[1]; return; }
+                        ouvrir(extraireCode(texte));
+                    }, () => {});
                 bouton.lastChild.textContent = ' Fermer la caméra';
             } catch (e) {
                 await arreterCamera();
@@ -107,8 +115,17 @@
             afficherSituation(s);
         }
 
-        const optionsSalles = () => '<option value="">Choisir la salle</option>' +
-            salles.map(s => `<option value="${echapper(s.nom)}">${echapper(s.nom)}</option>`).join('');
+        function salleMemorisee() {
+            try { return sessionStorage.getItem('salleCourante') || ''; } catch (e) { return ''; }
+        }
+        function memoriserSalle(nom) {
+            try { if (nom) sessionStorage.setItem('salleCourante', nom); } catch (e) { /* stockage indisponible */ }
+        }
+        const optionsSalles = () => {
+            const choisie = salleMemorisee().toLowerCase();
+            return '<option value="">Choisir la salle</option>' + salles.map(s =>
+                `<option value="${echapper(s.nom)}" ${s.nom.toLowerCase() === choisie ? 'selected' : ''}>${echapper(s.nom)}</option>`).join('');
+        };
 
         // Proposition : dans deux heures, sans dépasser la fin de journée
         function heureParDefaut() {
@@ -155,7 +172,14 @@
                             <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50"><input type="radio" name="etat" value="probleme" class="w-4 h-4"> <span class="text-sm text-slate-800">J'ai remarqué un problème</span></label>
                         </fieldset>
                         <div id="zoneRemarque" class="hidden"><label for="remarque" class="block text-sm font-medium text-slate-700 mb-1">Décrivez le problème</label>
-                            <textarea id="remarque" rows="3" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm" placeholder="Ex : l'image clignote, câble abîmé..."></textarea></div>
+                            <textarea id="remarque" rows="3" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm" placeholder="Ex : l'image clignote, câble abîmé..."></textarea>
+                            <label class="mt-3 flex items-center gap-3 p-3 border border-dashed border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
+                                <span class="w-10 h-10 rounded-lg grid place-items-center shrink-0 bg-slate-100 text-slate-600">${icone('photo', 'w-5 h-5')}</span>
+                                <span class="min-w-0 flex-1"><span class="block text-sm font-medium text-slate-800">Prendre une photo du problème</span>
+                                <span class="block text-xs text-slate-500">Facultatif : elle servira de preuve de l'état du matériel.</span></span>
+                                <input id="photoRetour" type="file" accept="image/*" capture="environment" class="sr-only">
+                            </label>
+                            <img id="apercuPhoto" class="hidden mt-2 max-h-48 rounded-lg border border-slate-200" alt="Photo du problème"></div>
                         <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg">Rendre le matériel</button></form>`;
                     break;
                 case 'DEMANDER_TRANSFERT':
@@ -182,6 +206,7 @@
             }
 
             zone.innerHTML = `
+                <div id="photosMateriel" class="hidden flex gap-1 overflow-x-auto bg-slate-50"></div>
                 <div class="p-5 border-b border-slate-200 flex items-start justify-between gap-3">
                     <div class="min-w-0">
                         <h2 class="text-xl font-semibold text-slate-800">${echapper(m.designation)}</h2>
@@ -198,12 +223,34 @@
             zone.classList.remove('hidden');
             zone.scrollIntoView({ behavior: 'smooth', block: 'start' });
             brancherAction(s);
+            afficherPhotos(m.id);
+        }
+
+        /** Photos du matériel en bandeau : on reconnaît l'équipement d'un coup d'œil. */
+        async function afficherPhotos(materielId) {
+            const ids = await appelApi(`/materiels/${materielId}/photos`);
+            const bande = document.getElementById('photosMateriel');
+            if (!bande || !Array.isArray(ids) || !ids.length) return;
+            bande.innerHTML = ids.map((id, i) => `<img src="${urlPhoto(id)}" data-i="${i}" alt="Photo ${i + 1}" class="h-40 sm:h-48 w-auto object-cover cursor-zoom-in shrink-0">`).join('');
+            bande.querySelectorAll('img').forEach(img => img.addEventListener('click', () => ouvrirVisionneuse(ids, parseInt(img.dataset.i))));
+            bande.classList.remove('hidden');
         }
 
         function brancherAction(s) {
             const form = document.getElementById('formAction');
             document.querySelectorAll('input[name=etat]').forEach(r => r.addEventListener('change', () =>
                 document.getElementById('zoneRemarque').classList.toggle('hidden', document.querySelector('input[name=etat]:checked').value !== 'probleme')));
+            photoRetour = null;
+            document.getElementById('photoRetour')?.addEventListener('change', async e => {
+                const fichier = e.target.files[0];
+                if (!fichier) return;
+                try {
+                    photoRetour = await reduireImage(fichier);
+                    const apercu = document.getElementById('apercuPhoto');
+                    apercu.src = photoRetour; apercu.classList.remove('hidden');
+                } catch (err) { afficherMessage('messageAction', err.message, false); }
+            });
+            document.getElementById('salle')?.addEventListener('change', e => memoriserSalle(e.target.value));
             const btn = document.getElementById('btnAction');
             if (btn) btn.addEventListener('click', () => envoyer('retirer', {}));
             const btnAnnuler = document.getElementById('btnAnnulerTransfert');
@@ -219,7 +266,7 @@
                     envoyer('fourniture', { salle: document.getElementById('salle').value, quantite: parseInt(document.getElementById('quantite').value || '0') });
                 } else if (s.action === 'RENDRE') {
                     const probleme = document.querySelector('input[name=etat]:checked').value === 'probleme';
-                    envoyer('rendre', { probleme, remarque: document.getElementById('remarque').value });
+                    envoyer('rendre', { probleme, remarque: document.getElementById('remarque').value, photo: probleme ? photoRetour : null });
                 } else {
                     const corps = { salle: document.getElementById('salle').value, heureRetourPrevue: document.getElementById('heure').value };
                     envoyer(s.action === 'RECUPERER' ? 'recuperer' : 'transfert', corps);

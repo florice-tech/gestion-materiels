@@ -39,7 +39,7 @@ public class StatistiqueService {
     /** Un matériel durable actuellement entre les mains d'un délégué. */
     public record Sortie(Long materielId, String designation, String code, String delegue, String filiereNiveau,
                          String salle, LocalDateTime depuis, LocalTime retourPrevu, boolean enRetard,
-                         Emprunt.Mode mode, Long empruntId) {
+                         Emprunt.Mode mode, Long empruntId, Long delegueId, String telephone) {
     }
 
     /** Une ligne du fil d'activité. type : DEMANDE, RESERVATION, SORTIE, SCAN, TRANSFERT, RETOUR, PROBLEME. */
@@ -212,7 +212,7 @@ public class StatistiqueService {
         Materiel m = d.getMateriel();
         return new Sortie(m.getId(), m.getDesignation(), m.getCodeUnique(), e.getDelegue().getNom(),
                 e.getDelegue().getFiliereNiveau(), e.getSalle(), e.getDateSortie(), e.getHeureRetourPrevue(),
-                e.isEnRetard(), e.getMode(), e.getId());
+                e.isEnRetard(), e.getMode(), e.getId(), e.getDelegue().getId(), e.getDelegue().getTelephone());
     }
 
     private long compterDurables(StatutMateriel statut) {

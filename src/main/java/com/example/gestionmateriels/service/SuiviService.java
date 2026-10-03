@@ -7,6 +7,7 @@ import com.example.gestionmateriels.model.Materiel;
 import com.example.gestionmateriels.repository.DetailEmpruntRepository;
 import com.example.gestionmateriels.repository.EmpruntRepository;
 import com.example.gestionmateriels.repository.MaterielRepository;
+import com.example.gestionmateriels.repository.PhotoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,7 +32,7 @@ public class SuiviService {
                         String transmisPar, LocalDateTime dateDemande, LocalDateTime dateSortie,
                         LocalDateTime dateRetour, Emprunt.Mode modeRetour, Emprunt.EtatRetour etatRetour,
                         String remarque, LocalDate dateReservation, LocalTime heureDebut, LocalTime heureFin,
-                        boolean enRetard) {
+                        boolean enRetard, Long photoRetourId) {
     }
 
     public record Creneau(LocalTime debut, LocalTime fin, String delegue, String salle, String type) {
@@ -40,20 +41,39 @@ public class SuiviService {
     public record Occupation(Materiel materiel, List<Creneau> creneaux) {
     }
 
+    /** Un matériel présent dans une salle (emprunté pour cette salle et pas encore rendu). */
+    public record MaterielPresent(Long materielId, String designation, String code, String delegue,
+                                  String filiereNiveau, LocalDateTime depuis, LocalTime retourPrevu, boolean enRetard) {
+    }
+
+    /** Ce qu'on voit en scannant le QR code collé à la porte d'une salle. */
+    public record SituationSalle(Long id, String nom, List<MaterielPresent> materiels,
+                                 List<Emprunt> reservationsDuJour, List<Emprunt> demandesEnAttente) {
+    }
+
     private final MaterielRepository materielRepository;
     private final DetailEmpruntRepository detailEmpruntRepository;
     private final EmpruntRepository empruntRepository;
+    private final PhotoRepository photoRepository;
+    private final com.example.gestionmateriels.repository.SalleRepository salleRepository;
 
     public SuiviService(MaterielRepository materielRepository, DetailEmpruntRepository detailEmpruntRepository,
-                        EmpruntRepository empruntRepository) {
+                        EmpruntRepository empruntRepository, PhotoRepository photoRepository,
+                        com.example.gestionmateriels.repository.SalleRepository salleRepository) {
+        this.salleRepository = salleRepository;
         this.materielRepository = materielRepository;
         this.detailEmpruntRepository = detailEmpruntRepository;
         this.empruntRepository = empruntRepository;
+        this.photoRepository = photoRepository;
     }
 
     public List<Etape> parcours(Long materielId) {
         materielRepository.findById(materielId)
                 .orElseThrow(() -> OperationException.introuvable("Matériel introuvable (id=" + materielId + ")."));
+        java.util.Map<Long, Long> photos = new java.util.HashMap<>();
+        for (Object[] ligne : photoRepository.idsRetoursDuMateriel(materielId)) {
+            photos.put((Long) ligne[0], (Long) ligne[1]);
+        }
         List<Etape> etapes = new ArrayList<>();
         for (DetailEmprunt d : detailEmpruntRepository.parcoursMateriel(materielId)) {
             Emprunt e = d.getEmprunt();
@@ -64,7 +84,7 @@ public class SuiviService {
                     e.getTransmisPar(), e.getDateDemande(), e.getDateSortie(), retour, d.getModeRetour(),
                     d.getEtatRetour(), d.getRemarqueRetour() != null ? d.getRemarqueRetour() : e.getObservations(),
                     e.getDateReservation(), e.getHeureDebut(), e.getHeureRetourPrevue(),
-                    e.isEnRetard() && !d.isRendu()));
+                    e.isEnRetard() && !d.isRendu(), photos.get(d.getId())));
         }
         return etapes;
     }
@@ -106,6 +126,27 @@ public class SuiviService {
             resultat.add(new Occupation(m, creneaux));
         }
         return resultat;
+    }
+
+    public SituationSalle situationSalle(Long salleId) {
+        var salle = salleRepository.findById(salleId)
+                .orElseThrow(() -> OperationException.introuvable("Salle introuvable."));
+        String nom = salle.getNom();
+        List<MaterielPresent> presents = new ArrayList<>();
+        for (DetailEmprunt d : detailEmpruntRepository.toutesLignesEnMain()) {
+            Emprunt e = d.getEmprunt();
+            if (nom.equalsIgnoreCase(e.getSalle())) {
+                presents.add(new MaterielPresent(d.getMateriel().getId(), d.getMateriel().getDesignation(),
+                        d.getMateriel().getCodeUnique(), e.getDelegue().getNom(), e.getDelegue().getFiliereNiveau(),
+                        e.getDateSortie(), e.getHeureRetourPrevue(), e.isEnRetard()));
+            }
+        }
+        List<Emprunt> reservations = empruntRepository
+                .findByStatutEmpruntAndDateReservationOrderByHeureDebutAsc(StatutEmprunt.RESERVEE, LocalDate.now())
+                .stream().filter(e -> nom.equalsIgnoreCase(e.getSalle())).toList();
+        List<Emprunt> demandes = empruntRepository.findByStatutEmpruntOrderByDateDemandeAsc(StatutEmprunt.EN_ATTENTE)
+                .stream().filter(e -> nom.equalsIgnoreCase(e.getSalle())).toList();
+        return new SituationSalle(salle.getId(), nom, presents, reservations, demandes);
     }
 
     private static boolean contient(Emprunt e, Materiel m, boolean seulementEnMain) {

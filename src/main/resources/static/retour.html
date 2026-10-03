@@ -36,6 +36,7 @@
                         <h3 id="recapEmprunteur" class="text-lg font-bold text-slate-800"></h3>
                         <p id="recapDetails" class="text-sm text-slate-600"></p>
                         <p id="recapRetard" class="text-sm font-semibold text-red-600 mt-1 hidden"></p>
+                        <div id="recapWhatsApp" class="mt-2"></div>
                     </div>
 
                     <div>
@@ -137,6 +138,15 @@
             const retard = document.getElementById('recapRetard');
             retard.classList.toggle('hidden', !e.enRetard);
             retard.textContent = e.enRetard ? `En retard : retour attendu le ${formaterDate(e.echeance)}.` : '';
+            // Rappel WhatsApp prêt à envoyer (si le délégué a donné son numéro)
+            const enMain = e.details.filter(d => d.materiel.typeGestion === 'DURABLE' && !d.rendu);
+            document.getElementById('recapWhatsApp').innerHTML = e.delegue.telephone
+                ? boutonWhatsApp(e.delegue.telephone, messageRappel({
+                    delegue: e.delegue.nom,
+                    designation: enMain.length === 1 ? enMain[0].materiel.designation : resumeArticles(enMain),
+                    code: enMain.length === 1 ? enMain[0].materiel.codeUnique : null,
+                    heure: formaterHeure(e.heureRetourPrevue), enRetard: e.enRetard }))
+                : '<p class="text-xs text-slate-400">Pas de numéro WhatsApp pour ce délégué (à ajouter dans Comptes).</p>';
 
             const lignes = document.getElementById('lignesArticles');
             lignes.innerHTML = e.details.map(d => d.materiel.typeGestion === 'DURABLE' && d.rendu ? `

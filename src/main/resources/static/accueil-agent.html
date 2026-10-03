@@ -72,6 +72,16 @@
             <div id="circulation"></div>
         </section>
 
+        <!-- Délégués dont les réservations sont en pause -->
+        <section id="zonePause" class="hidden bg-white rounded-xl border border-red-200 shadow-sm">
+            <div class="px-5 pt-5 pb-3">
+                <h2 class="font-semibold text-slate-800 text-lg">Réservations en pause</h2>
+                <p class="text-xs text-slate-500">Ces délégués ont trop de retards. Après un échange avec eux, débloquez leurs réservations.</p>
+            </div>
+            <div id="listePause" class="px-5 pb-5 space-y-2"></div>
+            <div id="messagePause" class="hidden mx-5 mb-5"></div>
+        </section>
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <section class="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                 <h2 class="font-semibold text-slate-800 text-lg">Sorties sur 7 jours</h2>
@@ -108,7 +118,7 @@
         const MODES_COURTS = { DEMANDE: 'remis au poste', AGENT: 'remis au poste', RESERVATION: 'réservation', SCAN: 'scan', TRANSFERT: 'transfert' };
         const COULEURS_FIL = { DEMANDE: '#22406e', RESERVATION: '#5d82b2', SORTIE: '#22406e', SCAN: '#22406e', TRANSFERT: '#b26a00', RETOUR: '#1f7a4d', PROBLEME: '#a3141c' };
         const LIBELLES_FIL = { DEMANDE: 'Demande', RESERVATION: 'Réservation', SORTIE: 'Sortie', SCAN: 'Scan', TRANSFERT: 'Transfert', RETOUR: 'Retour', PROBLEME: 'Problème' };
-        let moi = null, dernier = null;
+        let moi = null, dernier = null, confiances = {};
 
         document.addEventListener('DOMContentLoaded', async () => {
             moi = await initPage({ type: 'AGENT', page: 'tableau' });
@@ -122,8 +132,11 @@
         });
 
         async function charger() {
-            const t = await appelApi('/statistiques');
+            const [t, listeConfiance] = await Promise.all([appelApi('/statistiques'), appelApi('/confiance')]);
             if (!t || !t.compteurs) return;
+            confiances = {};
+            (Array.isArray(listeConfiance) ? listeConfiance : []).forEach(c => confiances[c.delegueId] = c);
+            afficherEnPause(Object.values(confiances).filter(c => c.bloque));
             dernier = t;
             afficherPhrase(t);
             afficherAdmin(t.administration);
@@ -199,7 +212,7 @@
                 <a href="emprunt.html" class="flex flex-wrap sm:flex-nowrap items-center gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50 hover:border-amber-300" style="text-decoration:none">
                     <span class="w-14 shrink-0 text-center leading-tight"><span class="block text-xs font-semibold text-amber-800">${momentCourt(e.dateDemande).jour}</span><span class="block text-[11px] text-slate-500">${momentCourt(e.dateDemande).heure}</span></span>
                     <span class="min-w-0 flex-1">
-                        <span class="block text-sm font-semibold text-slate-800">${echapper(e.delegue.nom)} <span class="font-normal text-slate-500">· salle ${echapper(e.salle)}</span></span>
+                        <span class="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-slate-800">${echapper(e.delegue.nom)} <span class="font-normal text-slate-500">· salle ${echapper(e.salle)}</span> ${badgeConfiance(confiances[e.delegue.id])}</span>
                         <span class="block text-xs text-slate-600 truncate">${echapper(resumeArticles(e.details))}${e.heureRetourPrevue ? ` · retour à ${formaterHeure(e.heureRetourPrevue)}` : ''}</span>
                     </span>
                     <span class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 text-white">Traiter</span>
@@ -216,6 +229,32 @@
             zone.innerHTML =
                 (demandes.length ? `<h3 class="text-xs font-semibold text-slate-500 pt-1">Demandes en attente${totalDemandes > demandes.length ? ` (5 sur ${totalDemandes})` : ''}</h3>` + demandes.map(ligneDemande).join('') : '') +
                 (reservations.length ? `<h3 class="text-xs font-semibold text-slate-500 pt-3">Réservations d'aujourd'hui</h3>` + reservations.map(ligneReservation).join('') : '');
+        }
+
+        function afficherEnPause(liste) {
+            document.getElementById('zonePause').classList.toggle('hidden', !liste.length);
+            const zone = document.getElementById('listePause');
+            zone.innerHTML = liste.map(c => {
+                const enCours = c.motifBlocage.startsWith('Vous avez un matériel');
+                const motif = enCours ? 'Un matériel est en retard en ce moment : les réservations reprendront dès son retour.'
+                    : `${c.enRetard} retours en retard sur 90 jours.`;
+                return `
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border border-slate-200">
+                    <div class="min-w-0 flex-1">
+                        <div class="font-semibold text-slate-800">${echapper(c.nom)} <span class="font-normal text-sm text-slate-500">· ${echapper(c.filiereNiveau)}</span></div>
+                        <div class="text-xs text-red-700">${echapper(motif)}</div>
+                    </div>
+                    <div class="flex gap-2 shrink-0">
+                        ${boutonWhatsApp(c.telephone, `Bonjour ${c.nom.split(/\s+/)[0]}, ici le poste de surveillance de Lomé Business School. Vos réservations de matériel sont en pause à cause de retards. Passez au poste pour en parler.`)}
+                        ${enCours ? '' : `<button data-debloquer="${c.delegueId}" class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Débloquer</button>`}
+                    </div>
+                </div>`;
+            }).join('');
+            zone.querySelectorAll('[data-debloquer]').forEach(b => b.addEventListener('click', async () => {
+                const r = await appelApi(`/confiance/${b.dataset.debloquer}/debloquer`, { method: 'POST' });
+                afficherMessage('messagePause', r.message, r.success);
+                charger();
+            }));
         }
 
         function afficherFil(evenements) {
@@ -253,23 +292,28 @@
                     <td class="py-3 px-3"><span class="text-slate-800">${echapper(s.delegue)}</span><span class="block text-xs text-slate-500">${echapper(s.filiereNiveau)}</span></td>
                     <td class="py-3 px-3 text-slate-700">${echapper(s.salle)}</td>
                     <td class="py-3 px-3 text-slate-600 whitespace-nowrap">${formaterDepuis(s.depuis)}</td>
-                    <td class="py-3 pl-3 pr-5 whitespace-nowrap"><span class="text-slate-800">${s.retourPrevu ? formaterHeure(s.retourPrevu) : '—'}</span><span class="block text-xs ${couleur}">${r.texte}</span></td>
+                    <td class="py-3 px-3 whitespace-nowrap"><span class="text-slate-800">${s.retourPrevu ? formaterHeure(s.retourPrevu) : '—'}</span><span class="block text-xs ${couleur}">${r.texte}</span></td>
+                    <td class="py-3 pl-3 pr-5 text-right">${s.telephone ? boutonWhatsApp(s.telephone, messageRappel({ delegue: s.delegue, designation: s.designation, code: s.code, heure: formaterHeure(s.retourPrevu), enRetard: r.retard }))
+                        : '<span class="text-[11px] text-slate-400">pas de numéro</span>'}</td>
                 </tr>`;
             }).join('');
             const cartes = triees.map(s => {
                 const r = restant(s);
-                return `<a href="fiche-materiel.html?id=${s.materielId}" class="block p-3 rounded-lg border ${r.retard ? 'border-red-200 bg-red-50' : 'border-slate-200'}" style="text-decoration:none">
-                    <div class="flex justify-between gap-2"><span class="font-semibold text-slate-800">${echapper(s.designation)}</span>
-                        <span class="text-xs whitespace-nowrap ${r.retard ? 'text-red-700 font-semibold' : r.bientot ? 'text-amber-800' : 'text-slate-500'}">${r.texte}</span></div>
-                    <div class="text-xs text-slate-600 mt-0.5">${echapper(s.delegue)} · salle ${echapper(s.salle)}${s.retourPrevu ? ` · retour ${formaterHeure(s.retourPrevu)}` : ''}</div>
-                </a>`;
+                return `<div class="flex items-center gap-3 p-3 rounded-lg border ${r.retard ? 'border-red-200 bg-red-50' : 'border-slate-200'}">
+                    <a href="fiche-materiel.html?id=${s.materielId}" class="min-w-0 flex-1" style="text-decoration:none">
+                        <div class="flex justify-between gap-2"><span class="font-semibold text-slate-800">${echapper(s.designation)}</span>
+                            <span class="text-xs whitespace-nowrap ${r.retard ? 'text-red-700 font-semibold' : r.bientot ? 'text-amber-800' : 'text-slate-500'}">${r.texte}</span></div>
+                        <div class="text-xs text-slate-600 mt-0.5">${echapper(s.delegue)} · salle ${echapper(s.salle)}${s.retourPrevu ? ` · retour ${formaterHeure(s.retourPrevu)}` : ''}</div>
+                    </a>
+                    ${boutonWhatsApp(s.telephone, messageRappel({ delegue: s.delegue, designation: s.designation, code: s.code, heure: formaterHeure(s.retourPrevu), enRetard: r.retard }), true)}
+                </div>`;
             }).join('');
             zone.innerHTML = `
                 <div class="hidden md:block overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead><tr class="text-left text-xs text-slate-500 border-y border-slate-200 bg-slate-50">
                             <th class="py-2 pl-5 pr-3 font-medium">Matériel</th><th class="py-2 px-3 font-medium">Chez</th><th class="py-2 px-3 font-medium">Salle</th>
-                            <th class="py-2 px-3 font-medium">Sorti</th><th class="py-2 pl-3 pr-5 font-medium">Retour prévu</th></tr></thead>
+                            <th class="py-2 px-3 font-medium">Sorti</th><th class="py-2 px-3 font-medium">Retour prévu</th><th class="py-2 pl-3 pr-5 font-medium text-right">Prévenir</th></tr></thead>
                         <tbody class="divide-y divide-slate-100">${lignes}</tbody>
                     </table>
                 </div>

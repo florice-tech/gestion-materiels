@@ -67,7 +67,7 @@ public class SecuriteConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/inscription").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/auth/moi").permitAll()
                 // Gestion des comptes : administrateurs uniquement
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/admin/**", "/api/statistiques/affluence").hasRole("ADMIN")
                 // Actions réservées aux délégués
                 .requestMatchers(HttpMethod.POST, "/api/emprunts/demande", "/api/emprunts/reservation",
                         "/api/emprunts/*/annuler", "/api/scan/**").hasRole("DELEGUE")
@@ -78,7 +78,8 @@ public class SecuriteConfig {
                         "/api/emprunts/historique", "/api/emprunts/export", "/api/emprunts/reservations").hasRole("AGENT")
                 // Lecture pour tout utilisateur connecté (une fiche : le contrôleur vérifie qu'elle appartient au délégué)
                 .requestMatchers(HttpMethod.GET, "/api/materiels", "/api/salles", "/api/categories",
-                        "/api/disponibilites", "/api/config", "/api/scan/*", "/api/emprunts/*").authenticated()
+                        "/api/disponibilites", "/api/config", "/api/scan/*", "/api/emprunts/*",
+                        "/api/photos/**", "/api/materiels/*/photos", "/api/salles/*/situation", "/api/confiance/moi").authenticated()
                 .requestMatchers("/api/notifications/**").authenticated()
                 // Mon compte, déconnexion : tout utilisateur connecté
                 .requestMatchers("/api/auth/**").authenticated()

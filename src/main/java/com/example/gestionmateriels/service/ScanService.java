@@ -46,10 +46,12 @@ public class ScanService {
     private final TransfertRepository transfertRepository;
     private final EmpruntService empruntService;
     private final NotificationService notifications;
+    private final PhotoService photoService;
 
     public ScanService(MaterielRepository materielRepository, DetailEmpruntRepository detailEmpruntRepository,
                        EmpruntRepository empruntRepository, TransfertRepository transfertRepository,
-                       EmpruntService empruntService, NotificationService notifications) {
+                       EmpruntService empruntService, NotificationService notifications, PhotoService photoService) {
+        this.photoService = photoService;
         this.materielRepository = materielRepository;
         this.detailEmpruntRepository = detailEmpruntRepository;
         this.empruntRepository = empruntRepository;
@@ -168,6 +170,11 @@ public class ScanService {
 
     /** Rendre un matériel en le scannant : bon état, ou problème signalé (le matériel passe « à vérifier »). */
     public Emprunt rendre(String code, Long delegueId, boolean probleme, String remarque) {
+        return rendre(code, delegueId, probleme, remarque, null);
+    }
+
+    /** Variante avec une photo de l'état du matériel (facultative). */
+    public Emprunt rendre(String code, Long delegueId, boolean probleme, String remarque, String photo) {
         Materiel materiel = durableParCode(code);
         DetailEmprunt ligne = ligneEnMain(materiel)
                 .filter(l -> l.getEmprunt().getDelegue().getId().equals(delegueId))
@@ -177,6 +184,9 @@ public class ScanService {
         }
         empruntService.rendreLigne(ligne, probleme ? Emprunt.EtatRetour.A_VERIFIER : Emprunt.EtatRetour.BON_ETAT,
                 Emprunt.Mode.SCAN, remarque);
+        if (photo != null && !photo.isBlank()) {
+            photoService.joindreAuRetour(ligne, photo, ligne.getEmprunt().getDelegue().getNom());
+        }
         annulerTransfertsEnAttente(ligne, "le matériel a été rendu");
         Emprunt emprunt = ligne.getEmprunt();
         empruntService.cloturerSiTermine(emprunt);

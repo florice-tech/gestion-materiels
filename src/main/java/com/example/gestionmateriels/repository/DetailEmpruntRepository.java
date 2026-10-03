@@ -36,6 +36,15 @@ public interface DetailEmpruntRepository extends JpaRepository<DetailEmprunt, Lo
             """)
     List<DetailEmprunt> toutesLignesEnMain();
 
+    /** Matériel durable rendu (ou passé à un autre) par un délégué depuis une date : base du score de confiance. */
+    @Query("""
+            select d from DetailEmprunt d
+            where d.emprunt.delegue.id = :delegueId and d.dateRetour >= :depuis
+              and d.materiel.typeGestion = com.example.gestionmateriels.model.Materiel.TypeGestion.DURABLE
+            """)
+    List<DetailEmprunt> lignesRenduesDuDelegue(@Param("delegueId") Long delegueId,
+                                              @Param("depuis") java.time.LocalDateTime depuis);
+
     /** Articles rendus depuis une date (pour le fil d'activité). */
     List<DetailEmprunt> findByDateRetourGreaterThanEqualOrderByDateRetourDesc(java.time.LocalDateTime depuis);
 

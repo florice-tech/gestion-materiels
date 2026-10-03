@@ -31,6 +31,10 @@
             </section>
             <aside class="space-y-5">
                 <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                    <h2 class="font-semibold text-slate-800 mb-3">Photos</h2>
+                    <div id="photos" class="fiche-photos"></div>
+                </section>
+                <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
                     <h2 class="font-semibold text-slate-800 mb-3">QR code</h2>
                     <div id="qr" class="qr max-w-[200px] mx-auto bg-white p-2 rounded border border-slate-200"></div>
                     <p id="codeQr" class="text-center text-xl font-extrabold tracking-wider text-slate-800 mt-2"></p>
@@ -56,6 +60,7 @@
                 document.getElementById('entetFiche').innerHTML = `<div class="bg-white rounded-xl border border-slate-200">${etatVide('Matériel introuvable.')}</div>`;
                 return;
             }
+            gestionnairePhotos(document.getElementById('photos'), id);
             const parcours = await appelApi(`/materiels/${id}/parcours`);
             afficherEntete(materiel, parcours);
             afficherParcours(parcours);
@@ -110,9 +115,12 @@
                     <div class="text-sm text-slate-600 mt-1">${sortie}</div>
                     ${retour ? `<div class="text-sm ${e.dateRetour ? 'text-slate-600' : 'text-blue-700 font-medium'}">${retour}</div>` : ''}
                     ${e.remarque ? `<div class="text-sm text-slate-500 mt-1 italic">« ${echapper(e.remarque)} »</div>` : ''}
+                    ${e.photoRetourId ? `<button type="button" data-photo-retour="${e.photoRetourId}" class="mt-2 flex items-center gap-2 text-xs text-slate-600 hover:text-slate-900">
+                        <img src="${urlPhoto(e.photoRetourId)}" alt="" class="w-14 h-14 object-cover rounded-lg border border-slate-200">Photo prise au retour (preuve)</button>` : ''}
                     <a href="bon.html?id=${e.empruntId}" class="text-xs text-blue-600">Bon d'emprunt n° ${e.empruntId}</a>
                 </div>`;
             }).join('');
+            zone.querySelectorAll('[data-photo-retour]').forEach(b => b.addEventListener('click', () => ouvrirVisionneuse([parseInt(b.dataset.photoRetour)])));
         }
 
         function afficherResume(m, etapes) {
