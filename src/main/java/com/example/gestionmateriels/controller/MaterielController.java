@@ -1,5 +1,8 @@
 package com.example.gestionmateriels.controller;
 
+import com.example.gestionmateriels.securite.UtilisateurConnecte;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+
 import com.example.gestionmateriels.dto.ChangerStatutMaterielRequest;
 import com.example.gestionmateriels.dto.MaterielRequest;
 import com.example.gestionmateriels.dto.ReapprovisionnerRequest;
@@ -44,9 +47,11 @@ public class MaterielController {
     }
 
     @PatchMapping("/{id}/statut")
-    public ResponseEntity<Map<String, Object>> changerStatut(@PathVariable Long id,
+    public ResponseEntity<Map<String, Object>> changerStatut(@AuthenticationPrincipal UtilisateurConnecte moi,
+                                                              @PathVariable Long id,
                                                               @RequestBody ChangerStatutMaterielRequest requete) {
-        return Reponses.ok("Statut mis à jour.", "materiel", materielService.changerStatut(id, requete.statut()));
+        return Reponses.ok("Statut mis à jour.", "materiel",
+                materielService.changerStatut(id, requete.statut(), moi != null ? moi.getNom() : "Un agent"));
     }
 
     @PatchMapping("/{id}/stock")

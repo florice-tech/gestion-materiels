@@ -179,3 +179,18 @@ html.dark .bg-blue-700 { background-color: #8fb0e6 !important; } html.dark .bg-b
 .vignette-materiel { width: 3.25rem; height: 3.25rem; border-radius: .5rem; overflow: hidden; border: 1px solid var(--ligne); background: var(--fond); display: grid; place-items: center; color: var(--texte-doux); }
 .vignette-materiel img { width: 100%; height: 100%; object-fit: cover; }
 .vignette-materiel { position: relative; cursor: pointer; } .vignette-materiel:hover { border-color: var(--lbs-marine); } .nb-photos { position: absolute; right: .15rem; bottom: .15rem; min-width: 1.1rem; padding: 0 .25rem; border-radius: 999px; background: rgba(10,18,32,.75); color: #fff; font-size: .65rem; font-weight: 700; line-height: 1.1rem; text-align: center; }
+
+/* Barre d'export (Imprimer / PDF / Excel) */
+.barre-export { display: inline-flex; border: 1px solid var(--ligne); border-radius: .5rem; overflow: hidden; background: var(--surface, #fff); }
+.bouton-export { padding: .45rem .8rem; font-size: .8rem; font-weight: 600; color: var(--texte); background: transparent; }
+.bouton-export + .bouton-export { border-left: 1px solid var(--ligne); }
+.bouton-export:hover { background: color-mix(in srgb, var(--lbs-marine) 8%, transparent); }
+.bouton-export:disabled { opacity: .6; }
+
+/* Onglets (Matériel gâté, Matériel manquant) */
+.onglet { padding: .45rem .9rem; font-size: .85rem; font-weight: 600; border-radius: 999px; border: 1px solid var(--ligne); color: var(--texte-doux); background: var(--surface); }
+.onglet[aria-selected="true"] { background: var(--lbs-marine); border-color: var(--lbs-marine); color: #fff; }
+.onglet:hover:not([aria-selected="true"]) { border-color: var(--lbs-marine); color: var(--texte); }
+/* Compteur de demandes : la jauge montre le poids relatif du besoin */
+.compteur-demandes { width: 4.25rem; padding: .6rem .25rem; border-radius: .75rem; display: flex; flex-direction: column; align-items: center; gap: .15rem;
+    background: linear-gradient(to top, color-mix(in srgb, var(--lbs-marine) 16%, transparent) var(--part), color-mix(in srgb, var(--lbs-marine) 4%, transparent) var(--part)); }

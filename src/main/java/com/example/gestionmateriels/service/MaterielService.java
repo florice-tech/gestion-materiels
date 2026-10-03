@@ -22,11 +22,16 @@ public class MaterielService {
     private final DetailEmpruntRepository detailEmpruntRepository;
     private final CategorieRepository categorieRepository;
     private final PhotoRepository photoRepository;
+    private final PanneService panneService;
+    private final ManqueService manqueService;
 
     public MaterielService(MaterielRepository materielRepository,
                            DetailEmpruntRepository detailEmpruntRepository,
-                           CategorieRepository categorieRepository, PhotoRepository photoRepository) {
+                           CategorieRepository categorieRepository, PhotoRepository photoRepository,
+                           PanneService panneService, ManqueService manqueService) {
         this.photoRepository = photoRepository;
+        this.panneService = panneService;
+        this.manqueService = manqueService;
         this.materielRepository = materielRepository;
         this.detailEmpruntRepository = detailEmpruntRepository;
         this.categorieRepository = categorieRepository;
@@ -56,7 +61,10 @@ public class MaterielService {
             }
             materiel.setQuantiteStock(quantite);
         }
-        return materielRepository.save(materiel);
+        Materiel enregistre = materielRepository.save(materiel);
+        // Ce matériel était peut-être demandé dans « Matériel manquant »
+        manqueService.surAjoutAuCatalogue(enregistre);
+        return enregistre;
     }
 
     /**
@@ -164,6 +172,10 @@ public class MaterielService {
      * EMPRUNTE ne peut être ni posé ni retiré à la main : il vient uniquement du cycle d'emprunt.
      */
     public Materiel changerStatut(Long id, Materiel.StatutMateriel nouveauStatut) {
+        return changerStatut(id, nouveauStatut, "Un agent");
+    }
+
+    public Materiel changerStatut(Long id, Materiel.StatutMateriel nouveauStatut, String agent) {
         if (nouveauStatut == null) {
             throw new OperationException("Le nouveau statut est obligatoire.");
         }
@@ -174,7 +186,9 @@ public class MaterielService {
         if (materiel.getStatut() == Materiel.StatutMateriel.EMPRUNTE) {
             throw new OperationException("Ce matériel est emprunté : son statut changera à son retour.");
         }
+        Materiel.StatutMateriel ancien = materiel.getStatut();
         materiel.setStatut(nouveauStatut);
+        panneService.surChangementStatut(materiel, ancien, nouveauStatut, agent);
         return materiel;
     }
 
@@ -188,6 +202,7 @@ public class MaterielService {
             throw new OperationException("Seuls les consommables peuvent être réapprovisionnés.");
         }
         materiel.setQuantiteStock(materiel.getQuantiteStock() + quantiteAjoutee);
+        manqueService.surReapprovisionnement(materiel);
         return materiel;
     }
 

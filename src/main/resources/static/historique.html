@@ -18,9 +18,7 @@
                 <h1 class="text-2xl md:text-3xl text-slate-800">Historique des emprunts</h1>
                 <p class="text-sm text-slate-500">Toutes les fiches : demandes, emprunts, retours, refus et annulations.</p>
             </div>
-            <a href="/api/emprunts/export" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium px-4 py-2 rounded-lg shadow-sm">
-                ⬇ Exporter en CSV (Excel)
-            </a>
+            <div id="export"></div>
         </div>
 
         <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
@@ -67,9 +65,24 @@
     </main>
 
     <script>
+        let listeAffichee = [];
+        const MODES_EXPORT = { DEMANDE: 'Demande en ligne', SCAN: 'Scan', TRANSFERT: 'Transfert', RESERVATION: 'Réservation', AGENT: 'Au poste' };
+        function donneesExport() {
+            const du = document.getElementById('filtreDu').value, au = document.getElementById('filtreAu').value;
+            return {
+                titre: 'Historique des emprunts',
+                sousTitre: `Lomé Business School${du || au ? ` · du ${du ? new Date(du).toLocaleDateString('fr-FR') : 'début'} au ${au ? new Date(au).toLocaleDateString('fr-FR') : 'aujourd\'hui'}` : ''} · ${pluriel(listeAffichee.length, 'fiche')}`,
+                colonnes: ['N°', 'Statut', 'Délégué', 'Filière', 'Salle', 'Mode', 'Demandé le', 'Sorti le', 'Retour prévu', 'Rendu le', 'Matériel', 'Observations'],
+                lignes: listeAffichee.map(e => [e.id, statutFiche(e).texte, e.delegue.nom, e.delegue.filiereNiveau, e.salle, MODES_EXPORT[e.mode] || '',
+                    dateExport(e.dateDemande), dateExport(e.dateSortie), formaterHeure(e.heureRetourPrevue) || '', dateExport(e.dateRetour),
+                    resumeArticles(e.details), e.observations || e.motifRefus || '']),
+                nomFichier: 'historique-emprunts'
+            };
+        }
         let historique = [];
 
         document.addEventListener('DOMContentLoaded', async () => {
+            barreExport('export', donneesExport);
             await initPage({ type: 'AGENT', page: 'historique' });
             ['filtreTexte', 'filtreStatut', 'filtreDu', 'filtreAu'].forEach(id =>
                 document.getElementById(id).addEventListener('input', afficher));
@@ -84,7 +97,7 @@
             const du = document.getElementById('filtreDu').value;
             const au = document.getElementById('filtreAu').value;
 
-            const liste = historique.filter(e => {
+            const liste = listeAffichee = historique.filter(e => {
                 const contenu = [e.delegue.nom, e.delegue.filiereNiveau, e.salle,
                     e.agentSortie?.nom, e.agentRetour?.nom, ...e.details.map(d => d.materiel.designation)]
                     .join(' ').toLowerCase();

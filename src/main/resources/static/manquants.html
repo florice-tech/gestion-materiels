@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="img/logo-lbs-icone.png">
+    <title>Matériel manquant - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/commun.js"></script>
+    <link rel="stylesheet" href="css/theme.css">
+</head>
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
+
+    <main class="max-w-6xl mx-auto p-4 md:p-6 space-y-5">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+            <div>
+                <h1 class="text-2xl md:text-3xl text-slate-800">Matériel manquant</h1>
+                <p class="text-sm text-slate-500 mt-1">Ce que les délégués demandent et qui n'existe pas ou n'est plus disponible. Le plus demandé en premier ; chaque ligne reste jusqu'à ce que le matériel soit ajouté.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <div id="export"></div>
+                <button id="btnAjouter" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Noter un besoin</button>
+            </div>
+        </div>
+
+        <section id="chiffres" class="grid grid-cols-2 lg:grid-cols-4 gap-3"></section>
+        <div id="messageZone" class="hidden"></div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex flex-wrap gap-2" role="tablist" aria-label="Vue">
+                <button data-vue="OUVERT" class="onglet" role="tab">En attente</button>
+                <button data-vue="RESOLU" class="onglet" role="tab">Réglés</button>
+                <button data-vue="ABANDONNE" class="onglet" role="tab">Abandonnés</button>
+            </div>
+            <input id="filtre" type="search" placeholder="Rechercher" class="px-3 py-2 border border-slate-300 rounded-lg text-sm w-full sm:w-56">
+        </div>
+
+        <div id="liste" class="space-y-3"></div>
+    </main>
+
+    <script>
+        let manques = [], vue = 'OUVERT';
+        const ORIGINES = {
+            DELEGUE: { texte: 'Demandé par un délégué', classe: 'bg-blue-100 text-blue-800' },
+            INDISPONIBLE: { texte: 'Indisponible au moment voulu', classe: 'bg-amber-100 text-amber-800' },
+            STOCK_EPUISE: { texte: 'Stock épuisé', classe: 'bg-red-100 text-red-700' },
+            AGENT: { texte: 'Noté par un agent', classe: 'bg-slate-200 text-slate-700' }
+        };
+        const STATUTS = { OUVERT: 'En attente', RESOLU: 'Réglé', ABANDONNE: 'Abandonné' };
+        const joli = t => t ? t.charAt(0) + t.slice(1).toLowerCase() : '';
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initPage({ type: 'AGENT', page: 'manquants' });
+            document.querySelectorAll('[data-vue]').forEach(b => b.addEventListener('click', () => { vue = b.dataset.vue; afficher(); }));
+            document.getElementById('filtre').addEventListener('input', afficher);
+            document.getElementById('btnAjouter').addEventListener('click', () => ouvrirSignalementManque({}, charger));
+            barreExport('export', donneesExport);
+            charger();
+        });
+
+        async function charger() {
+            const r = await appelApi('/manques');
+            manques = Array.isArray(r) ? r : [];
+            afficher();
+        }
+
+        function visibles() {
+            const texte = document.getElementById('filtre').value.toLowerCase().trim();
+            return manques.filter(m => m.statut === vue && (!texte || `${m.designation} ${m.categorie || ''} ${m.demandeurs.join(' ')}`.toLowerCase().includes(texte)));
+        }
+
+        function afficher() {
+            document.querySelectorAll('[data-vue]').forEach(b => {
+                const n = manques.filter(m => m.statut === b.dataset.vue).length;
+                b.setAttribute('aria-selected', b.dataset.vue === vue);
+                b.textContent = `${STATUTS[b.dataset.vue].replace('Réglé', 'Réglés').replace('Abandonné', 'Abandonnés')}${n ? ` (${n})` : ''}`;
+            });
+            afficherChiffres();
+            const liste = visibles(), zone = document.getElementById('liste');
+            if (!liste.length) {
+                zone.innerHTML = `<div class="bg-white rounded-xl border border-slate-200">${etatVide(vue === 'OUVERT'
+                    ? 'Rien ne manque pour le moment. Les délégués peuvent signaler un besoin depuis leur espace.' : 'Aucune ligne.')}</div>`;
+                return;
+            }
+            const max = Math.max(...liste.map(m => m.nombreDemandes));
+            zone.innerHTML = '';
+            liste.forEach(m => zone.appendChild(carte(m, max)));
+        }
+
+        function afficherChiffres() {
+            const ouverts = manques.filter(m => m.statut === 'OUVERT');
+            const debutMois = new Date(); debutMois.setDate(1); debutMois.setHours(0, 0, 0, 0);
+            const tuile = (libelle, valeur, alerte, detail) => `<div class="bg-white p-4 rounded-xl border ${alerte ? 'border-amber-200 bg-amber-50' : 'border-slate-200'} shadow-sm">
+                <div class="text-xs font-medium text-slate-500">${libelle}</div>
+                <div class="text-2xl font-bold mt-0.5 ${alerte ? 'text-amber-800' : 'text-slate-800'}">${valeur}</div>
+                ${detail ? `<div class="text-[11px] text-slate-500 mt-0.5">${detail}</div>` : ''}</div>`;
+            const demandes = ouverts.reduce((s, m) => s + m.nombreDemandes, 0);
+            const delegues = ouverts.reduce((s, m) => s + m.nombreDelegues, 0);
+            const top = [...ouverts].sort((a, b) => b.nombreDemandes - a.nombreDemandes)[0];
+            document.getElementById('chiffres').innerHTML =
+                tuile('Matériels manquants', ouverts.length, ouverts.length > 0, top ? `le plus demandé : ${echapper(top.designation)}` : '') +
+                tuile('Demandes en attente', demandes, false, 'toutes lignes confondues') +
+                tuile('Délégués qui attendent', delegues, false, 'un délégué compte pour chaque matériel demandé') +
+                tuile('Réglés ce mois', manques.filter(m => m.statut === 'RESOLU' && new Date(m.dateResolution) >= debutMois).length, false, 'ajoutés ou réapprovisionnés');
+        }
+
+        function carte(m, max) {
+            const div = document.createElement('article');
+            const ouvert = m.statut === 'OUVERT';
+            div.className = 'bg-white rounded-xl border border-slate-200 shadow-sm p-4';
+            const signalements = m.signalements.map(s => `<li class="flex flex-wrap gap-x-2 text-xs text-slate-600 py-1.5 border-t border-slate-100">
+                <span class="font-medium text-slate-800">${echapper(s.auteur)}</span>${s.salle ? `<span>· salle ${echapper(s.salle)}</span>` : ''}
+                <span class="text-slate-400">· ${formaterDepuis(s.date)}</span>${s.commentaire ? `<span class="basis-full italic">« ${echapper(s.commentaire)} »</span>` : ''}</li>`).join('');
+            const nouveau = `materiel.html?nouveau=${encodeURIComponent(m.designation)}`;
+            div.innerHTML = `
+                <div class="flex items-start gap-4">
+                    <div class="compteur-demandes shrink-0" style="--part:${Math.round(m.nombreDemandes / max * 100)}%">
+                        <span class="text-2xl font-bold text-slate-800 leading-none">${m.nombreDemandes}</span>
+                        <span class="text-[11px] text-slate-500">${m.nombreDemandes > 1 ? 'demandes' : 'demande'}</span>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <span class="font-semibold text-slate-800 text-base">${echapper(m.designation)}</span>
+                            ${m.code ? `<a href="fiche-materiel.html?id=${m.materielId}" class="text-xs font-semibold tracking-wide text-slate-500" style="text-decoration:none">${echapper(m.code)}</a>` : ''}
+                            ${badge(ORIGINES[m.origine])}
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1">${m.categorie ? `${echapper(joli(m.categorie))} · ` : ''}quantité souhaitée : ${m.quantiteSouhaitee}
+                            · ${m.nombreDelegues ? pluriel(m.nombreDelegues, 'délégué') : 'aucun délégué'} · dernière demande ${formaterDepuis(m.dateDerniereDemande)}</p>
+                        ${m.demandeurs.length ? `<p class="text-xs text-slate-600 mt-1">Demandé par ${m.demandeurs.map(echapper).join(', ')}</p>` : ''}
+                        ${!ouvert ? `<p class="text-xs mt-1 ${m.statut === 'RESOLU' ? 'text-green-700' : 'text-slate-600'}">${STATUTS[m.statut]} le ${formaterDate(m.dateResolution)} par ${echapper(m.resoluPar || '')}${m.noteResolution ? ` : ${echapper(m.noteResolution)}` : ''}</p>` : ''}
+                        ${signalements ? `<details class="mt-2"><summary class="text-xs text-blue-600 cursor-pointer">Voir ${pluriel(m.signalements.length, 'demande')}</summary><ul class="mt-1">${signalements}</ul></details>` : ''}
+                    </div>
+                </div>
+                <div class="flex flex-wrap justify-end gap-2 mt-3">
+                    ${ouvert ? `
+                        <button data-abandon class="px-3 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Abandonner</button>
+                        <button data-regle class="px-3 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Marquer réglé</button>
+                        ${m.origine === 'STOCK_EPUISE' || m.materielId
+                            ? `<a href="materiel.html?qr=${encodeURIComponent(m.code || '')}" class="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700" style="text-decoration:none">${m.origine === 'STOCK_EPUISE' ? 'Réapprovisionner' : 'Ouvrir dans le catalogue'}</a>`
+                            : `<a href="${nouveau}" class="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700" style="text-decoration:none">Ajouter au catalogue</a>`}`
+                    : '<button data-rouvrir class="px-3 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Remettre en attente</button>'}
+                </div>`;
+            div.querySelector('[data-regle]')?.addEventListener('click', () => regler(m));
+            div.querySelector('[data-abandon]')?.addEventListener('click', () => abandonner(m));
+            div.querySelector('[data-rouvrir]')?.addEventListener('click', () => action(`/manques/${m.id}/rouvrir`, {}));
+            return div;
+        }
+
+        async function regler(m) {
+            const v = await demanderFormulaire({
+                titre: `« ${m.designation} » est réglé`,
+                texte: `Les délégués qui l'ont demandé (${m.nombreDelegues}) seront prévenus.`,
+                champs: [{ nom: 'note', label: 'Ce qui a été fait (facultatif)', valeur: '', aide: 'Ex : 2 rallonges achetées, rangées au poste.' }],
+                bouton: 'Marquer réglé'
+            });
+            if (v) action(`/manques/${m.id}/resoudre`, { note: v.note });
+        }
+
+        async function abandonner(m) {
+            const v = await demanderFormulaire({
+                titre: `Abandonner « ${m.designation} »`,
+                texte: 'Le besoin sort de la liste et les délégués reçoivent la raison.',
+                champs: [{ nom: 'note', label: 'Pourquoi ?', type: 'textarea', requis: true, valeur: '' }],
+                bouton: 'Abandonner', danger: true
+            });
+            if (v) action(`/manques/${m.id}/abandonner`, { note: v.note });
+        }
+
+        async function action(chemin, body) {
+            const r = await appelApi(chemin, { method: 'POST', body });
+            afficherMessage('messageZone', r.message, r.success);
+            charger();
+        }
+
+        function donneesExport() {
+            return {
+                titre: 'Matériel manquant',
+                sousTitre: `Lomé Business School · ${STATUTS[vue].toLowerCase()}`,
+                colonnes: ['Matériel', 'Catégorie', 'Quantité souhaitée', 'Demandes', 'Délégués', 'Origine', 'Demandé par', 'Première demande', 'Dernière demande', 'État', 'Réglé le', 'Par', 'Note'],
+                lignes: visibles().map(m => [m.designation, joli(m.categorie), m.quantiteSouhaitee, m.nombreDemandes, m.nombreDelegues,
+                    ORIGINES[m.origine].texte, m.demandeurs.join(', '), dateExport(m.dateCreation), dateExport(m.dateDerniereDemande),
+                    STATUTS[m.statut], dateExport(m.dateResolution), m.resoluPar || '', m.noteResolution || '']),
+                nomFichier: 'materiel-manquant'
+            };
+        }
+    </script>
+</body>
+</html>

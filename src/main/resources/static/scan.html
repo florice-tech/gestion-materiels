@@ -201,7 +201,11 @@
                     action = `<button id="btnAnnulerTransfert" class="w-full border border-slate-300 text-slate-700 font-medium py-2.5 rounded-lg hover:bg-slate-50">Annuler ma demande</button>`;
                     break;
                 case 'CONSULTER':
-                    action = `<a href="fiche-materiel.html?id=${m.id}" class="block text-center w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg" style="text-decoration:none">${m.typeGestion === 'DURABLE' ? 'Voir le parcours de ce matériel' : 'Voir la fiche de cette fourniture'}</a>`;
+                    action = actionsAgent(m) + `<a href="fiche-materiel.html?id=${m.id}" class="block text-center w-full border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium py-2.5 rounded-lg" style="text-decoration:none">${m.typeGestion === 'DURABLE' ? 'Voir le parcours de ce matériel' : 'Voir la fiche de cette fourniture'}</a>`;
+                    break;
+                case 'INDISPONIBLE':
+                    action = `<button id="btnSignalerManque" class="w-full border border-slate-300 text-slate-700 font-medium py-2.5 rounded-lg hover:bg-slate-50">Signaler qu'il en manque</button>
+                        <p class="text-xs text-slate-500">Plus un matériel est demandé, plus il passe en priorité pour être acheté ou réparé.</p>`;
                     break;
             }
 
@@ -224,6 +228,39 @@
             zone.scrollIntoView({ behavior: 'smooth', block: 'start' });
             brancherAction(s);
             afficherPhotos(m.id);
+        }
+
+        /** Agents : déclarer gâté, marquer réparé ou vérifié, selon l'état du matériel scanné. */
+        function actionsAgent(m) {
+            if (m.typeGestion !== 'DURABLE') return '';
+            const formGate = `<form id="formGate" class="hidden space-y-2">
+                    <label for="descriptionPanne" class="block text-sm font-medium text-slate-700">Qu'est-ce qui ne va pas ?</label>
+                    <textarea id="descriptionPanne" rows="3" required class="w-full border border-slate-300 rounded-lg p-2.5 text-sm" placeholder="Ex : la lampe ne s'allume plus"></textarea>
+                    <button class="w-full bg-red-700 hover:bg-red-800 text-white font-semibold py-3 rounded-lg">Enregistrer comme gâté</button></form>`;
+            if (m.statut === 'DISPONIBLE') {
+                return `<button type="button" id="btnGate" class="w-full border border-red-200 text-red-700 font-semibold py-2.5 rounded-lg hover:bg-red-50">Ce matériel est gâté</button>${formGate}`;
+            }
+            if (m.statut === 'A_VERIFIER') {
+                return `<div class="grid grid-cols-2 gap-2">
+                        <button type="button" id="btnVerifie" class="bg-green-700 hover:bg-green-800 text-white font-semibold py-3 rounded-lg">En bon état</button>
+                        <button type="button" id="btnGate" class="border border-red-200 text-red-700 font-semibold py-3 rounded-lg hover:bg-red-50">C'est gâté</button>
+                    </div>${formGate}`;
+            }
+            if (m.statut === 'MAINTENANCE' || m.statut === 'HS') {
+                return `<form id="formReparer" class="space-y-2 rounded-lg border border-slate-200 p-3">
+                    <p class="text-sm font-medium text-slate-800">${m.statut === 'HS' ? 'Hors service' : 'En panne'} : une fois réparé, il redevient disponible.</p>
+                    <input id="noteReparation" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm" placeholder="Ce qui a été fait (facultatif)">
+                    <input id="coutReparation" type="number" min="0" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm" placeholder="Coût en FCFA (facultatif)">
+                    <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg">Réparé</button>
+                    <a href="pannes.html" class="block text-center text-xs text-blue-600">Voir tout le matériel gâté</a></form>`;
+            }
+            return '';
+        }
+
+        async function actionMaintenance(chemin, corps) {
+            const r = await appelApi(chemin, { method: 'POST', body: corps });
+            afficherMessage('messageAction', r.message, r.success);
+            if (r.success) setTimeout(() => ouvrir(codeCourant), 900);
         }
 
         /** Photos du matériel en bandeau : on reconnaît l'équipement d'un coup d'œil. */
@@ -259,6 +296,25 @@
                 afficherMessage('messageAction', r.message, r.success);
                 if (r.success) setTimeout(() => ouvrir(codeCourant), 800);
             });
+            // Agents : maintenance
+            const m = s.materiel;
+            document.getElementById('btnGate')?.addEventListener('click', () => {
+                document.getElementById('formGate').classList.remove('hidden');
+                document.getElementById('descriptionPanne').focus();
+            });
+            document.getElementById('formGate')?.addEventListener('submit', e => {
+                e.preventDefault();
+                actionMaintenance('/pannes', { materielId: m.id, description: document.getElementById('descriptionPanne').value });
+            });
+            document.getElementById('btnVerifie')?.addEventListener('click', () => actionMaintenance(`/materiels/${m.id}/verifie`, {}));
+            document.getElementById('formReparer')?.addEventListener('submit', e => {
+                e.preventDefault();
+                const cout = document.getElementById('coutReparation').value;
+                actionMaintenance(`/materiels/${m.id}/reparer`, { note: document.getElementById('noteReparation').value, cout: cout === '' ? null : parseInt(cout) });
+            });
+            // Délégués : matériel indisponible → il manque
+            document.getElementById('btnSignalerManque')?.addEventListener('click', () =>
+                ouvrirSignalementManque({ materielId: m.id, designation: m.designation }));
             if (!form) return;
             form.addEventListener('submit', e => {
                 e.preventDefault();

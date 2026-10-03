@@ -93,6 +93,8 @@ const ICONES = {
     ecran: '<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
     affluence: '<rect x="3" y="3" width="5" height="5" rx="1"/><rect x="10" y="3" width="5" height="5" rx="1"/><rect x="17" y="3" width="4" height="5" rx="1"/><rect x="3" y="10" width="5" height="5" rx="1"/><rect x="10" y="10" width="5" height="5" rx="1"/><rect x="3" y="17" width="5" height="4" rx="1"/>',
     salle: '<path d="M3 21h18M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17"/><path d="M14 12h.01"/>',
+    panne: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4 2.5-2.5Z"/>',
+    manque: '<path d="M21 8 12 3 3 8v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5M12 13v8"/><path d="M17 3.5l-9 5"/>',
     photo: '<path d="M4 7h3l2-3h6l2 3h3a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.5"/>',
     sortie: '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5M15 12H3"/>'
 };
@@ -114,6 +116,8 @@ const NAVIGATION = {
         { groupe: 'Matériel', liens: [
             { cle: 'catalogue', texte: 'Catalogue', lien: 'materiel.html', icone: 'catalogue' },
             { cle: 'etiquettes', texte: 'Étiquettes QR', lien: 'etiquettes.html', icone: 'etiquettes' },
+            { cle: 'pannes', texte: 'Matériel gâté', lien: 'pannes.html', icone: 'panne' },
+            { cle: 'manquants', texte: 'Matériel manquant', lien: 'manquants.html', icone: 'manque' },
             { cle: 'historique', texte: 'Historique', lien: 'historique.html', icone: 'historique' }
         ] },
         { groupe: 'Administration', liens: [
@@ -855,4 +859,210 @@ function ouvrirPhotos(materiel, apresChangement) {
     document.addEventListener('keydown', echap);
     document.body.appendChild(fond);
     gestionnairePhotos(fond.querySelector('.zone-photos'), materiel.id, { apresChangement });
+}
+
+// ---------------------------------------------------------------------------
+// Exports : Imprimer, PDF, Excel (mêmes données, même en-tête LBS)
+// donnees = { titre, sousTitre, colonnes: [..], lignes: [[..], ..], nomFichier, paysage }
+// ---------------------------------------------------------------------------
+
+const _scriptsCharges = {};
+function chargerScript(src) {
+    if (!_scriptsCharges[src]) {
+        _scriptsCharges[src] = new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = src; s.onload = resolve;
+            s.onerror = () => { delete _scriptsCharges[src]; reject(new Error('Connexion internet nécessaire pour cet export.')); };
+            document.head.appendChild(s);
+        });
+    }
+    return _scriptsCharges[src];
+}
+
+let _logoDataUrl = null;
+async function logoEnDataUrl() {
+    if (_logoDataUrl !== null) return _logoDataUrl;
+    _logoDataUrl = await new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+            const t = document.createElement('canvas');
+            t.width = img.naturalWidth; t.height = img.naturalHeight;
+            t.getContext('2d').drawImage(img, 0, 0);
+            try { resolve({ url: t.toDataURL('image/png'), ratio: img.naturalWidth / img.naturalHeight }); } catch (e) { resolve(''); }
+        };
+        img.onerror = () => resolve('');
+        img.src = 'img/logo-lbs.png';
+    });
+    return _logoDataUrl;
+}
+
+const dateEdition = () => new Date().toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' });
+const nomFichierExport = (d, ext) => `${(d.nomFichier || d.titre).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '')}-${new Date().toISOString().slice(0, 10)}.${ext}`;
+
+async function exporterPdf(d) {
+    await chargerScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    await chargerScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+    const paysage = d.paysage ?? d.colonnes.length > 6;
+    const doc = new window.jspdf.jsPDF({ orientation: paysage ? 'landscape' : 'portrait', unit: 'mm', format: 'a4' });
+    const largeur = doc.internal.pageSize.getWidth(), hauteur = doc.internal.pageSize.getHeight();
+    const logo = await logoEnDataUrl();
+    if (logo) doc.addImage(logo.url, 'PNG', 14, 10, 14 * logo.ratio > 40 ? 40 : 14 * logo.ratio, 14 * logo.ratio > 40 ? 40 / logo.ratio : 14);
+    doc.setTextColor(34, 64, 110); doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
+    doc.text(d.titre, largeur - 14, 16, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90, 100, 120);
+    doc.text(d.sousTitre || 'Lomé Business School · gestion du matériel', largeur - 14, 22, { align: 'right' });
+    doc.setDrawColor(34, 64, 110); doc.setLineWidth(0.6); doc.line(14, 28, largeur - 14, 28);
+    doc.autoTable({
+        head: [d.colonnes], body: d.lignes.map(l => l.map(v => v === null || v === undefined ? '' : String(v))),
+        startY: 33, margin: { left: 14, right: 14, bottom: 16 },
+        styles: { font: 'helvetica', fontSize: 8.5, cellPadding: 2, textColor: [26, 34, 51], lineColor: [221, 226, 234], lineWidth: 0.1 },
+        headStyles: { fillColor: [34, 64, 110], textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [245, 247, 250] },
+        didDrawPage: () => {
+            doc.setFontSize(8); doc.setTextColor(154, 167, 189);
+            doc.text(`Lomé Business School · édité le ${dateEdition()}`, 14, hauteur - 8);
+            doc.text(`Page ${doc.internal.getNumberOfPages()}`, largeur - 14, hauteur - 8, { align: 'right' });
+        }
+    });
+    if (!d.lignes.length) doc.text('Aucune ligne.', 14, 45);
+    doc.save(nomFichierExport(d, 'pdf'));
+}
+
+async function exporterExcel(d) {
+    await chargerScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
+    const lignes = [[d.titre], [d.sousTitre || 'Lomé Business School'], [`Édité le ${dateEdition()}`], [], d.colonnes,
+        ...d.lignes.map(l => l.map(v => v === null || v === undefined ? '' : v))];
+    const feuille = XLSX.utils.aoa_to_sheet(lignes);
+    feuille['!cols'] = d.colonnes.map((c, i) => ({
+        wch: Math.min(50, Math.max(String(c).length, ...d.lignes.map(l => String(l[i] ?? '').length)) + 2)
+    }));
+    feuille['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(0, d.colonnes.length - 1) } }];
+    feuille['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 4, c: 0 }, e: { r: 4 + d.lignes.length, c: d.colonnes.length - 1 } }) };
+    const classeur = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(classeur, feuille, (d.feuille || d.titre).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31));
+    XLSX.writeFile(classeur, nomFichierExport(d, 'xlsx'));
+}
+
+/** Impression propre : un document à part avec l'en-tête LBS et le tableau seul. */
+async function imprimerTableau(d) {
+    const logo = await logoEnDataUrl();
+    const cadre = document.createElement('iframe');
+    cadre.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+    document.body.appendChild(cadre);
+    const paysage = d.paysage ?? d.colonnes.length > 6;
+    cadre.srcdoc = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>${echapper(d.titre)}</title><style>
+        @page { size: A4 ${paysage ? 'landscape' : 'portrait'}; margin: 12mm; }
+        body { font: 10pt "Public Sans", Arial, sans-serif; color: #1a2233; margin: 0; }
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #22406e; padding-bottom: 8px; margin-bottom: 12px; }
+        h1 { font: 700 16pt Georgia, serif; color: #22406e; margin: 0; text-align: right; }
+        .sous { color: #5a6478; font-size: 9pt; text-align: right; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #22406e; color: #fff; text-align: left; padding: 5px 6px; font-size: 9pt; }
+        td { padding: 5px 6px; border-bottom: 1px solid #dde2ea; vertical-align: top; font-size: 9pt; }
+        tr:nth-child(even) td { background: #f5f7fa; }
+        thead { display: table-header-group; } tr { break-inside: avoid; }
+        footer { margin-top: 12px; color: #9aa7bd; font-size: 8pt; }
+    </style></head><body>
+        <header>${logo ? `<img src="${logo.url}" style="height:42px">` : '<strong>LBS</strong>'}<div><h1>${echapper(d.titre)}</h1>
+        <div class="sous">${echapper(d.sousTitre || 'Lomé Business School · gestion du matériel')}</div></div></header>
+        <table><thead><tr>${d.colonnes.map(c => `<th>${echapper(c)}</th>`).join('')}</tr></thead>
+        <tbody>${d.lignes.map(l => `<tr>${l.map(v => `<td>${echapper(v ?? '')}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${d.colonnes.length}">Aucune ligne.</td></tr>`}</tbody></table>
+        <footer>Lomé Business School · ${pluriel(d.lignes.length, 'ligne')} · édité le ${dateEdition()}</footer>
+    </body></html>`;
+    cadre.onload = () => {
+        cadre.contentWindow.focus();
+        cadre.contentWindow.print();
+        setTimeout(() => cadre.remove(), 60000);
+    };
+}
+
+/**
+ * Trois boutons Imprimer / PDF / Excel dans `conteneur`.
+ * fournisseur() renvoie les données à exporter au moment du clic (filtres compris).
+ */
+function barreExport(conteneur, fournisseur) {
+    if (typeof conteneur === 'string') conteneur = document.getElementById(conteneur);
+    if (!conteneur) return;
+    const bouton = (action, texte) => `<button type="button" data-export="${action}" class="bouton-export">${texte}</button>`;
+    conteneur.innerHTML = `<div class="barre-export" role="group" aria-label="Exporter">${bouton('imprimer', 'Imprimer')}${bouton('pdf', 'PDF')}${bouton('excel', 'Excel')}</div>`;
+    conteneur.querySelectorAll('[data-export]').forEach(b => b.addEventListener('click', async () => {
+        const texte = b.textContent;
+        b.disabled = true; b.textContent = '…';
+        try {
+            const d = await fournisseur();
+            if (b.dataset.export === 'pdf') await exporterPdf(d);
+            else if (b.dataset.export === 'excel') await exporterExcel(d);
+            else await imprimerTableau(d);
+        } catch (e) {
+            alerteExport(e.message || 'Export impossible.');
+        } finally {
+            b.disabled = false; b.textContent = texte;
+        }
+    }));
+}
+
+function alerteExport(texte) {
+    const zone = document.createElement('div');
+    zone.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-red-50 text-red-700 border border-red-200 text-sm rounded-lg px-4 py-3 shadow';
+    zone.textContent = texte;
+    document.body.appendChild(zone);
+    setTimeout(() => zone.remove(), 5000);
+}
+
+/** Date et heure courtes pour les exports (« 03/10/2026 14:05 »), vide si absente. */
+function dateExport(iso) {
+    return iso ? new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+}
+
+
+// ---------------------------------------------------------------------------
+// Signaler un matériel manquant (délégués et agents)
+// ---------------------------------------------------------------------------
+
+/**
+ * options : { materielId, designation } pour un matériel du catalogue indisponible ;
+ * vide pour un matériel qui n'existe pas encore. apres(resultat) est appelé si l'envoi réussit.
+ */
+async function ouvrirSignalementManque(options = {}, apres) {
+    const [categories, salles] = await Promise.all([appelApi('/categories'), appelApi('/salles')]);
+    const connu = !!options.materielId;
+    const champs = [];
+    if (!connu) {
+        champs.push({ nom: 'designation', label: 'Quel matériel manque ?', requis: true, valeur: options.designation || '',
+                      aide: 'Ex : rallonge électrique, vidéoprojecteur pour l\'amphi, marqueurs bleus…' });
+        champs.push({ nom: 'categorieId', label: 'Catégorie', type: 'select', valeur: '',
+                      options: [{ valeur: '', texte: 'Je ne sais pas' }, ...(Array.isArray(categories) ? categories : []).map(c => ({ valeur: c.id, texte: c.nom.charAt(0) + c.nom.slice(1).toLowerCase() }))] });
+    }
+    champs.push({ nom: 'quantite', label: 'Combien en faudrait-il ?', type: 'number', valeur: 1, requis: true });
+    if (UTILISATEUR && UTILISATEUR.type === 'DELEGUE') {
+        champs.push({ nom: 'salle', label: 'Pour quelle salle ?', type: 'select', valeur: '',
+                      options: [{ valeur: '', texte: 'Pas précisé' }, ...(Array.isArray(salles) ? salles : []).map(x => ({ valeur: x.nom, texte: x.nom }))] });
+    }
+    champs.push({ nom: 'commentaire', label: 'Pour quoi faire ? (facultatif)', type: 'textarea', valeur: '' });
+    const v = await demanderFormulaire({
+        titre: connu ? `Il manque : ${options.designation}` : 'Signaler un matériel manquant',
+        texte: connu
+            ? 'Votre demande s\'ajoute à celles des autres délégués : plus un matériel est demandé, plus il passe en priorité.'
+            : 'Le poste de surveillance voit tous les besoins, classés par nombre de demandes. Vous serez prévenu quand il sera disponible.',
+        champs, bouton: 'Envoyer'
+    });
+    if (!v) return null;
+    const r = await appelApi('/manques', { method: 'POST', body: {
+        materielId: options.materielId || null, designation: v.designation || null,
+        categorieId: v.categorieId ? parseInt(v.categorieId) : null, quantite: parseInt(v.quantite || '1'),
+        salle: v.salle || null, commentaire: v.commentaire || null } });
+    afficherBandeau(r.message, r.success);
+    if (r.success && apres) apres(r);
+    return r;
+}
+
+/** Message bref en bas de l'écran (succès ou erreur). */
+function afficherBandeau(texte, succes) {
+    const zone = document.createElement('div');
+    zone.setAttribute('role', 'status');
+    zone.className = `fixed bottom-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-[calc(100%-2rem)] text-sm rounded-lg px-4 py-3 shadow border ${succes
+        ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`;
+    zone.textContent = texte || (succes ? 'C\'est fait.' : 'Une erreur est survenue.');
+    document.body.appendChild(zone);
+    setTimeout(() => zone.remove(), 5000);
 }

@@ -39,7 +39,10 @@
         <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
             <div class="flex flex-wrap justify-between items-center gap-2">
                 <h2 class="font-semibold text-slate-800">Délégués</h2>
-                <input id="filtreDelegues" type="search" placeholder="Rechercher..." class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                <div class="flex flex-wrap items-center gap-2">
+                    <div id="exportDelegues"></div>
+                    <input id="filtreDelegues" type="search" placeholder="Rechercher..." class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                </div>
             </div>
             <p class="text-xs text-slate-400">Les délégués créent eux-mêmes leur compte. Le score de confiance se calcule sur leurs retours des 90 derniers jours : après 3 retards, leurs réservations sont en pause jusqu'à ce que vous les débloquiez.</p>
             <div class="overflow-x-auto">
@@ -57,6 +60,22 @@
     <script>
         let moi = null;
         let delegues = [];
+        function donneesExportDelegues() {
+            const texte = document.getElementById('filtreDelegues').value.toLowerCase().trim();
+            const liste = delegues.filter(d => !texte || `${d.nom} ${d.identifiant} ${d.filiereNiveau}`.toLowerCase().includes(texte));
+            return {
+                titre: 'Délégués et confiance',
+                sousTitre: `Lomé Business School · score calculé sur les retours des 90 derniers jours`,
+                colonnes: ['Nom', 'Identifiant', 'Filière et niveau', 'WhatsApp', 'Confiance', 'Score /100', 'Rendus à l\'heure', 'Retours', 'Retards', 'Compte'],
+                lignes: liste.map(d => {
+                    const c = confiances[d.id] || {};
+                    return [d.nom, d.identifiant, d.filiereNiveau, d.telephone ? '+' + d.telephone : '',
+                        c.bloque ? 'Réservations en pause' : (NIVEAUX_CONFIANCE[c.niveau] || {}).texte || '', c.score ?? '',
+                        c.aLHeure ?? '', c.retours ?? '', c.enRetard ?? '', d.actif ? 'Actif' : 'Désactivé'];
+                }),
+                nomFichier: 'delegues-confiance'
+            };
+        }
         let confiances = {};
 
         /** Sous le badge : la raison d'une pause, sinon le score et les retours à l'heure. */
@@ -79,6 +98,7 @@
             : { texte: 'Désactivé', classe: 'bg-slate-200 text-slate-600' });
 
         document.addEventListener('DOMContentLoaded', async () => {
+            barreExport('exportDelegues', donneesExportDelegues);
             moi = await initPage({ type: 'AGENT', admin: true, page: 'comptes' });
             document.getElementById('btnNouvelAgent').addEventListener('click', creerAgent);
             document.getElementById('filtreDelegues').addEventListener('input', afficherDelegues);

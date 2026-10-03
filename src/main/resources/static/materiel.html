@@ -19,6 +19,7 @@
                 <p class="text-sm text-slate-500 mt-1">Chaque matériel a son QR code et jusqu'à 6 photos : touchez la vignette pour les voir ou les modifier.</p>
             </div>
             <div class="flex flex-wrap gap-2">
+                <div id="export"></div>
                 <a href="etiquettes.html" class="inline-flex items-center gap-2 border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-2 rounded-lg" style="text-decoration:none" id="lienEtiquettes"></a>
                 <button id="btnAjouter" class="lg:hidden inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg" aria-controls="panneauAjout" aria-expanded="false"></button>
             </div>
@@ -109,6 +110,7 @@
         let categories = [];
         let materiels = [];
         let photosParMateriel = {};
+        let catalogueAffiche = [];
         let photosEnAttente = []; // photos choisies avant l'ajout (images réduites, en data URL)
 
         const typeChoisi = () => document.querySelector('input[name=typeGestion]:checked').value;
@@ -118,6 +120,16 @@
             document.getElementById('lienEtiquettes').innerHTML = `${icone('etiquettes', 'w-4 h-4')} Imprimer les étiquettes`;
             document.getElementById('btnAjouter').innerHTML = `${icone('demande', 'w-4 h-4')} Ajouter un matériel`;
             document.getElementById('btnAjouter').addEventListener('click', basculerPanneau);
+            barreExport('export', () => ({
+                titre: 'Catalogue du matériel',
+                sousTitre: `Lomé Business School · ${pluriel(catalogueAffiche.length, 'matériel')}`,
+                colonnes: ['Code', 'Matériel', 'Catégorie', 'Type', 'État ou stock', 'Seuil d\'alerte', 'Photos'],
+                lignes: catalogueAffiche.map(m => [m.codeUnique, m.designation, m.categorie.nom.charAt(0) + m.categorie.nom.slice(1).toLowerCase(),
+                    m.typeGestion === 'DURABLE' ? 'Durable' : 'Fourniture',
+                    m.typeGestion === 'DURABLE' ? LABELS_STATUT_MATERIEL[m.statut].texte : m.quantiteStock,
+                    m.typeGestion === 'DURABLE' ? '' : m.seuilAlerte, (photosParMateriel[m.id] || []).length]),
+                nomFichier: 'catalogue'
+            }));
             document.getElementById('formAjout').addEventListener('submit', ajouterMateriel);
             document.querySelectorAll('input[name=typeGestion]').forEach(r => r.addEventListener('change', basculerChamps));
             document.getElementById('codeUnique').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/\s+/g, '-'); });
@@ -127,6 +139,15 @@
             afficherPhotosAjout();
             await chargerCategories();
             await chargerCatalogue();
+            // Arrivée depuis « Matériel manquant » : ?nouveau=Désignation pré-remplit l'ajout
+            const nouveau = new URLSearchParams(location.search).get('nouveau');
+            if (nouveau) {
+                document.getElementById('designation').value = nouveau;
+                const panneau = document.getElementById('panneauAjout');
+                if (getComputedStyle(panneau).display === 'none') basculerPanneau();
+                afficherMessage('messageAjout', 'Demandé dans « Matériel manquant » : complétez puis ajoutez. Les délégués qui l\'ont demandé seront prévenus.', true);
+                document.getElementById('designation').focus();
+            }
             // Arrivée depuis une autre page : ?qr=CODE ouvre directement le QR code
             const qr = new URLSearchParams(location.search).get('qr');
             const cible = qr && materiels.find(m => (m.codeUnique || '').toLowerCase() === qr.toLowerCase());
@@ -195,7 +216,7 @@
             const categorieId = document.getElementById('filtreCategorie').value;
             const statut = document.getElementById('filtreStatut').value;
 
-            const liste = materiels.filter(m =>
+            const liste = catalogueAffiche = materiels.filter(m =>
                 (!texte || `${m.designation} ${m.codeUnique || ''}`.toLowerCase().includes(texte)) &&
                 (!categorieId || String(m.categorie.id) === categorieId) &&
                 (!statut || (statut === 'STOCK_BAS' ? m.stockBas

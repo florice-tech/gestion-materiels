@@ -31,7 +31,7 @@
                     <a href="comptes.html" class="lien-admin">Comptes</a>
                     <a href="parametres.html" class="lien-admin">Salles et catégories</a>
                     <a href="etiquettes.html" class="lien-admin">Étiquettes QR</a>
-                    <a href="/api/emprunts/export" class="lien-admin">Exporter l'historique</a>
+                    <a href="historique.html" class="lien-admin">Historique PDF et Excel</a>
                 </div>
             </div>
             <div id="chiffresAdmin" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3"></div>
@@ -39,6 +39,7 @@
 
         <!-- Compteurs -->
         <section id="compteurs" class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3" aria-label="Chiffres du jour"></section>
+        <section id="alertesMateriel" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-3"></section>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             <!-- À traiter -->
@@ -67,7 +68,8 @@
                     <h2 class="font-semibold text-slate-800 text-lg">Matériel en circulation</h2>
                     <p class="text-xs text-slate-500">Qui a quoi en ce moment, les retards en premier.</p>
                 </div>
-                <a href="retour.html" class="text-sm text-blue-600">Enregistrer un retour</a>
+                <div class="flex flex-wrap items-center gap-3"><div id="exportCirculation"></div>
+                <a href="retour.html" class="text-sm text-blue-600">Enregistrer un retour</a></div>
             </div>
             <div id="circulation"></div>
         </section>
@@ -125,6 +127,14 @@
             const heure = new Date().getHours();
             document.getElementById('bonjour').textContent = `${heure < 18 ? 'Bonjour' : 'Bonsoir'}, ${moi.nom}`;
             document.getElementById('btnActualiser').addEventListener('click', charger);
+            barreExport('exportCirculation', () => ({
+                titre: 'Matériel en circulation',
+                sousTitre: `Lomé Business School · état au ${new Date().toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`,
+                colonnes: ['Matériel', 'Code', 'Chez', 'Filière', 'Salle', 'Sorti le', 'Retour prévu', 'En retard'],
+                lignes: (dernier ? dernier.enCirculation : []).map(s => [s.designation, s.code, s.delegue, s.filiereNiveau, s.salle,
+                    dateExport(s.depuis), formaterHeure(s.retourPrevu) || '', s.enRetard ? 'Oui' : 'Non']),
+                nomFichier: 'materiel-en-circulation'
+            }));
             charger();
             setInterval(charger, 30000);
             // Les comptes à rebours (« dans 20 min ») avancent sans recharger
@@ -141,6 +151,7 @@
             afficherPhrase(t);
             afficherAdmin(t.administration);
             afficherCompteurs(t.compteurs);
+            afficherAlertesMateriel(t.compteurs);
             afficherATraiter(t.demandesATraiter, t.reservationsDuJour, t.compteurs.demandesEnAttente);
             afficherFil(t.activiteRecente);
             afficherCirculation(t.enCirculation);
@@ -376,6 +387,21 @@
                         <span class="font-semibold text-slate-700 whitespace-nowrap">${pluriel(m.nombreEmprunts, 'fois', 'fois')}</span></div>
                     <div class="h-1.5 bg-slate-100 rounded mt-1"><div class="h-1.5 bg-blue-500 rounded" style="width:${Math.round(m.nombreEmprunts / max * 100)}%"></div></div>
                 </div>`).join('');
+        }
+
+        function afficherAlertesMateriel(c) {
+            const zone = document.getElementById('alertesMateriel');
+            const cartes = [];
+            if (c.pannesOuvertes) cartes.push(`<a href="pannes.html" class="flex items-center gap-3 p-4 rounded-xl border border-red-200 bg-red-50 hover:border-red-300" style="text-decoration:none">
+                <span class="w-10 h-10 rounded-lg grid place-items-center bg-white text-red-700 shrink-0">${icone('panne', 'w-5 h-5')}</span>
+                <span class="min-w-0"><span class="block font-semibold text-red-800">${pluriel(c.pannesOuvertes, 'matériel gâté', 'matériels gâtés')}</span>
+                <span class="block text-xs text-slate-600">En panne ou hors service : à réparer</span></span></a>`);
+            if (c.manquesOuverts) cartes.push(`<a href="manquants.html" class="flex items-center gap-3 p-4 rounded-xl border border-amber-200 bg-amber-50 hover:border-amber-300" style="text-decoration:none">
+                <span class="w-10 h-10 rounded-lg grid place-items-center bg-white text-amber-800 shrink-0">${icone('manque', 'w-5 h-5')}</span>
+                <span class="min-w-0"><span class="block font-semibold text-amber-900">${pluriel(c.manquesOuverts, 'matériel manquant', 'matériels manquants')}</span>
+                <span class="block text-xs text-slate-600">Demandé par les délégués : à acheter ou réapprovisionner</span></span></a>`);
+            zone.innerHTML = cartes.join('');
+            zone.classList.toggle('hidden', !cartes.length);
         }
     </script>
 </body>

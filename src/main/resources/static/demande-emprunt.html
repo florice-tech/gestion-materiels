@@ -48,6 +48,8 @@
                 </button>
             </div>
         </form>
+        <p class="text-sm text-slate-500 text-center">Le matériel qu'il vous faut n'est pas dans la liste, ou il est toujours indisponible ?
+            <button type="button" id="btnManque" class="text-blue-600 underline underline-offset-2">Signalez qu'il manque</button></p>
     </main>
 
     <script>
@@ -55,6 +57,7 @@
         const selection = new Map(); // materielId -> quantité (conservée quand on filtre)
 
         document.addEventListener('DOMContentLoaded', async () => {
+            document.getElementById('btnManque').addEventListener('click', () => ouvrirSignalementManque());
             await initPage({ type: 'DELEGUE', page: 'demande' });
             document.getElementById('demandeForm').addEventListener('submit', soumettre);
             document.getElementById('recherche').addEventListener('input', afficherMateriel);

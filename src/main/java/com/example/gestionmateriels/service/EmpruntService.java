@@ -39,6 +39,8 @@ public class EmpruntService {
     private final SalleRepository salleRepository;
     private final NotificationService notifications;
     private final ConfianceService confianceService;
+    private final PanneService panneService;
+    private final ManqueService manqueService;
 
     public EmpruntService(EmpruntRepository empruntRepository,
                           DetailEmpruntRepository detailEmpruntRepository,
@@ -47,8 +49,12 @@ public class EmpruntService {
                           DelegueRepository delegueRepository,
                           SalleRepository salleRepository,
                           NotificationService notifications,
-                          ConfianceService confianceService) {
+                          ConfianceService confianceService,
+                          PanneService panneService,
+                          ManqueService manqueService) {
         this.confianceService = confianceService;
+        this.panneService = panneService;
+        this.manqueService = manqueService;
         this.empruntRepository = empruntRepository;
         this.detailEmpruntRepository = detailEmpruntRepository;
         this.materielRepository = materielRepository;
@@ -255,6 +261,8 @@ public class EmpruntService {
                         "L'état de retour de \"" + detail.getMateriel().getDesignation() + "\" est manquant.");
             }
             rendreLigne(detail, etat, Emprunt.Mode.AGENT, null);
+            // Endommagé ou vide / épuisé : le matériel passe dans « Matériel gâté »
+            panneService.depuisRetour(detail, etat, observations, agent.getNom());
         }
         if (!lignesDeLaFiche.containsAll(etatParLigne.keySet())) {
             throw new OperationException("Une ligne de retour ne correspond pas à cet emprunt.");
@@ -424,6 +432,9 @@ public class EmpruntService {
                                 + materiel.getQuantiteStock() + ", demandé : " + quantite + ").");
             }
             materiel.setQuantiteStock(materiel.getQuantiteStock() - quantite);
+            if (materiel.getQuantiteStock() == 0) {
+                manqueService.stockEpuise(materiel);
+            }
         }
     }
 

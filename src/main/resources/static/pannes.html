@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="img/logo-lbs-icone.png">
+    <title>Matériel gâté - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/commun.js"></script>
+    <link rel="stylesheet" href="css/theme.css">
+</head>
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
+
+    <main class="max-w-6xl mx-auto p-4 md:p-6 space-y-5">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+            <div>
+                <h1 class="text-2xl md:text-3xl text-slate-800">Matériel gâté</h1>
+                <p class="text-sm text-slate-500 mt-1">Le matériel abîmé reste ici jusqu'à sa réparation. Il arrive au retour (endommagé), quand un agent le scanne, ou depuis le catalogue.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <div id="export"></div>
+                <button id="btnDeclarer" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">Déclarer un matériel gâté</button>
+            </div>
+        </div>
+
+        <section id="chiffres" class="grid grid-cols-2 lg:grid-cols-4 gap-3"></section>
+        <div id="messageZone" class="hidden"></div>
+
+        <div class="flex flex-wrap gap-2" role="tablist" aria-label="Vue">
+            <button data-vue="a-traiter" class="onglet" role="tab">À traiter</button>
+            <button data-vue="reparees" class="onglet" role="tab">Réparés</button>
+            <button data-vue="tout" class="onglet" role="tab">Tout l'historique</button>
+        </div>
+
+        <section id="zoneVerifier" class="hidden space-y-2">
+            <h2 class="font-semibold text-slate-800 text-lg">À vérifier</h2>
+            <p class="text-sm text-slate-500 -mt-1">Un délégué a signalé un problème en le rendant. Contrôlez-le : en bon état, il redevient disponible ; sinon déclarez-le gâté.</p>
+            <div id="listeVerifier" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+        </section>
+
+        <section id="zonePannes" class="space-y-2">
+            <h2 id="titreListe" class="font-semibold text-slate-800 text-lg">En panne ou hors service</h2>
+            <div id="listePannes" class="space-y-3"></div>
+        </section>
+    </main>
+
+    <script>
+        let pannes = [], materiels = [], photos = {}, vue = 'a-traiter';
+        const ORIGINES = { RETOUR: 'Au retour', SCAN: 'Par scan', CATALOGUE: 'Depuis le catalogue' };
+        const STATUTS = {
+            EN_PANNE: { texte: 'En panne', classe: 'bg-red-100 text-red-700' },
+            HORS_SERVICE: { texte: 'Hors service', classe: 'bg-slate-200 text-slate-700' },
+            REPAREE: { texte: 'Réparé', classe: 'bg-green-100 text-green-700' }
+        };
+        const fcfa = n => n == null ? '' : `${Number(n).toLocaleString('fr-FR')} FCFA`;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initPage({ type: 'AGENT', page: 'pannes' });
+            const v = new URLSearchParams(location.search).get('vue');
+            if (['a-traiter', 'reparees', 'tout'].includes(v)) vue = v;
+            document.querySelectorAll('[data-vue]').forEach(b => b.addEventListener('click', () => { vue = b.dataset.vue; afficher(); }));
+            document.getElementById('btnDeclarer').addEventListener('click', () => declarer());
+            barreExport('export', donneesExport);
+            charger();
+        });
+
+        async function charger() {
+            const [p, m, ph] = await Promise.all([appelApi('/pannes'), appelApi('/materiels'), appelApi('/photos/materiels')]);
+            pannes = Array.isArray(p) ? p : [];
+            materiels = Array.isArray(m) ? m : [];
+            photos = ph && ph.success !== false ? ph : {};
+            afficher();
+        }
+
+        const ouvertes = () => pannes.filter(p => p.statut !== 'REPAREE');
+        const aVerifier = () => materiels.filter(m => m.typeGestion === 'DURABLE' && m.statut === 'A_VERIFIER');
+
+        function afficher() {
+            document.querySelectorAll('[data-vue]').forEach(b => b.setAttribute('aria-selected', b.dataset.vue === vue));
+            afficherChiffres();
+            const verif = aVerifier();
+            document.getElementById('zoneVerifier').classList.toggle('hidden', vue !== 'a-traiter' || !verif.length);
+            afficherVerifier(verif);
+
+            const liste = vue === 'a-traiter' ? ouvertes() : vue === 'reparees' ? pannes.filter(p => p.statut === 'REPAREE') : pannes;
+            document.getElementById('titreListe').textContent = vue === 'a-traiter' ? 'En panne ou hors service' : vue === 'reparees' ? 'Réparés' : 'Toutes les pannes';
+            const zone = document.getElementById('listePannes');
+            if (!liste.length) {
+                zone.innerHTML = `<div class="bg-white rounded-xl border border-slate-200">${etatVide(vue === 'a-traiter'
+                    ? 'Aucun matériel gâté : tout fonctionne.' : 'Aucune réparation enregistrée pour l\'instant.')}</div>`;
+                return;
+            }
+            zone.innerHTML = '';
+            liste.forEach(p => zone.appendChild(carte(p)));
+        }
+
+        function afficherChiffres() {
+            const debutMois = new Date(); debutMois.setDate(1); debutMois.setHours(0, 0, 0, 0);
+            const debutAnnee = new Date(new Date().getFullYear(), 0, 1);
+            const reparesMois = pannes.filter(p => p.statut === 'REPAREE' && new Date(p.dateReparation) >= debutMois).length;
+            const cout = pannes.filter(p => p.coutReparation && new Date(p.dateReparation) >= debutAnnee).reduce((s, p) => s + p.coutReparation, 0);
+            const tuile = (libelle, valeur, ton, detail) => `<div class="bg-white p-4 rounded-xl border ${ton === 'alerte' ? 'border-red-200 bg-red-50' : ton === 'attention' ? 'border-amber-200 bg-amber-50' : 'border-slate-200'} shadow-sm">
+                <div class="text-xs font-medium text-slate-500">${libelle}</div>
+                <div class="text-2xl font-bold mt-0.5 ${ton === 'alerte' ? 'text-red-700' : ton === 'attention' ? 'text-amber-800' : 'text-slate-800'}">${valeur}</div>
+                ${detail ? `<div class="text-[11px] text-slate-500 mt-0.5">${detail}</div>` : ''}</div>`;
+            const enPanne = pannes.filter(p => p.statut === 'EN_PANNE').length, hs = pannes.filter(p => p.statut === 'HORS_SERVICE').length;
+            document.getElementById('chiffres').innerHTML =
+                tuile('En panne', enPanne, enPanne ? 'alerte' : '', 'à réparer') +
+                tuile('Hors service', hs, '', 'irréparables pour l\'instant') +
+                tuile('À vérifier', aVerifier().length, aVerifier().length ? 'attention' : '', 'problème signalé au retour') +
+                tuile('Réparés ce mois', reparesMois, '', cout ? `${fcfa(cout)} de réparations cette année` : 'coût non renseigné');
+        }
+
+        function afficherVerifier(liste) {
+            const zone = document.getElementById('listeVerifier');
+            zone.innerHTML = '';
+            liste.forEach(m => {
+                const div = document.createElement('div');
+                div.className = 'bg-white rounded-xl border border-amber-200 shadow-sm p-4 flex items-center gap-3';
+                div.innerHTML = `${vignette(m.id)}
+                    <div class="min-w-0 flex-1">
+                        <a href="fiche-materiel.html?id=${m.id}" class="font-semibold text-slate-800" style="text-decoration:none">${echapper(m.designation)}</a>
+                        <div class="text-xs text-slate-500">${echapper(m.codeUnique)} · voir le parcours pour la remarque du délégué</div>
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-1.5 shrink-0">
+                        <button data-ok class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-green-700 text-white hover:bg-green-800">En bon état</button>
+                        <button data-gate class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-red-200 text-red-700 hover:bg-red-50">C'est gâté</button>
+                    </div>`;
+                div.querySelector('[data-ok]').addEventListener('click', () => action(`/materiels/${m.id}/verifie`, {}));
+                div.querySelector('[data-gate]').addEventListener('click', () => declarer(m));
+                zone.appendChild(div);
+            });
+        }
+
+        function vignette(materielId) {
+            const ids = photos[materielId] || [];
+            return `<span class="vignette-materiel shrink-0">${ids.length ? `<img src="${urlPhoto(ids[0])}" alt="" loading="lazy">` : icone('panne', 'w-5 h-5')}</span>`;
+        }
+
+        function carte(p) {
+            const m = p.materiel, ouverte = p.statut !== 'REPAREE';
+            const div = document.createElement('article');
+            div.className = `bg-white rounded-xl border shadow-sm p-4 ${p.statut === 'EN_PANNE' ? 'border-red-200' : 'border-slate-200'}`;
+            const origine = p.origine === 'RETOUR' && p.delegueConcerne
+                ? `au retour de ${echapper(p.delegueConcerne)}${p.empruntId ? ` (<a href="bon.html?id=${p.empruntId}" class="text-blue-600">bon n° ${p.empruntId}</a>)` : ''}`
+                : ORIGINES[p.origine].toLowerCase();
+            div.innerHTML = `
+                <div class="flex items-start gap-3">
+                    ${vignette(m.id)}
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                            <a href="fiche-materiel.html?id=${m.id}" class="font-semibold text-slate-800" style="text-decoration:none">${echapper(m.designation)}</a>
+                            <span class="text-xs font-semibold tracking-wide text-slate-500">${echapper(m.codeUnique)}</span>
+                            ${badge(STATUTS[p.statut])}
+                        </div>
+                        <p class="text-sm text-slate-700 mt-1">« ${echapper(p.description)} »</p>
+                        <p class="text-xs text-slate-500 mt-1">Déclaré ${formaterDepuis(p.dateDeclaration)} par ${echapper(p.declareePar)}, ${origine}${ouverte ? ` · gâté depuis ${dureeDepuis(p.dateDeclaration)}` : ''}</p>
+                        ${!ouverte ? `<p class="text-xs text-green-700 mt-1">Réparé le ${formaterDate(p.dateReparation)} par ${echapper(p.repareePar || '')}${p.noteReparation ? ` : ${echapper(p.noteReparation)}` : ''}${p.coutReparation ? ` · ${fcfa(p.coutReparation)}` : ''}</p>`
+                            : p.noteReparation ? `<p class="text-xs text-slate-500 mt-1">Note : ${echapper(p.noteReparation)}</p>` : ''}
+                    </div>
+                </div>
+                ${ouverte ? `<div class="flex flex-wrap justify-end gap-2 mt-3">
+                    ${p.statut === 'EN_PANNE' ? '<button data-hs class="px-3 py-2 text-sm rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Hors service</button>' : ''}
+                    <button data-reparer class="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700">Réparé</button>
+                </div>` : ''}`;
+            div.querySelector('[data-reparer]')?.addEventListener('click', () => reparer(p));
+            div.querySelector('[data-hs]')?.addEventListener('click', () => horsService(p));
+            return div;
+        }
+
+        function dureeDepuis(iso) {
+            const jours = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+            if (jours < 1) return 'aujourd\'hui';
+            return pluriel(jours, 'jour');
+        }
+
+        async function reparer(p) {
+            const v = await demanderFormulaire({
+                titre: `« ${p.materiel.designation} » est réparé`,
+                texte: 'Il redevient disponible pour les emprunts.',
+                champs: [
+                    { nom: 'note', label: 'Ce qui a été fait (facultatif)', type: 'textarea', valeur: '' },
+                    { nom: 'cout', label: 'Coût de la réparation en FCFA (facultatif)', type: 'number', valeur: '' }
+                ],
+                bouton: 'Enregistrer la réparation'
+            });
+            if (!v) return;
+            action(`/pannes/${p.id}/reparer`, { note: v.note, cout: v.cout === '' ? null : parseInt(v.cout) });
+        }
+
+        async function horsService(p) {
+            const v = await demanderFormulaire({
+                titre: `Mettre « ${p.materiel.designation} » hors service`,
+                texte: 'Il ne peut plus être emprunté et reste dans cette liste. Vous pourrez toujours le marquer réparé plus tard.',
+                champs: [{ nom: 'note', label: 'Raison (facultatif)', type: 'textarea', valeur: '' }],
+                bouton: 'Mettre hors service', danger: true
+            });
+            if (v) action(`/pannes/${p.id}/hors-service`, { note: v.note });
+        }
+
+        async function declarer(materiel) {
+            const possibles = materiels.filter(m => m.typeGestion === 'DURABLE' && ['DISPONIBLE', 'A_VERIFIER'].includes(m.statut));
+            if (!materiel && !possibles.length) { afficherMessage('messageZone', 'Aucun matériel disponible à déclarer gâté.', false); return; }
+            const champs = materiel ? [] : [{ nom: 'materielId', label: 'Matériel', type: 'select', requis: true,
+                options: possibles.map(m => ({ valeur: m.id, texte: `${m.designation} (${m.codeUnique})` })) }];
+            champs.push({ nom: 'description', label: 'Qu\'est-ce qui ne va pas ?', type: 'textarea', requis: true, valeur: '' });
+            const v = await demanderFormulaire({
+                titre: materiel ? `Déclarer « ${materiel.designation} » gâté` : 'Déclarer un matériel gâté',
+                texte: 'Astuce : vous pouvez aussi scanner son QR code. Un matériel emprunté se déclare à son retour.',
+                champs, bouton: 'Déclarer gâté', danger: true
+            });
+            if (!v) return;
+            action('/pannes', { materielId: materiel ? materiel.id : parseInt(v.materielId), description: v.description });
+        }
+
+        async function action(chemin, body) {
+            const r = await appelApi(chemin, { method: 'POST', body });
+            afficherMessage('messageZone', r.message, r.success);
+            charger();
+        }
+
+        function donneesExport() {
+            const liste = vue === 'a-traiter' ? ouvertes() : vue === 'reparees' ? pannes.filter(p => p.statut === 'REPAREE') : pannes;
+            return {
+                titre: 'Matériel gâté',
+                sousTitre: `Lomé Business School · ${vue === 'a-traiter' ? 'en panne ou hors service' : vue === 'reparees' ? 'réparations' : 'historique complet'}`,
+                colonnes: ['Matériel', 'Code', 'Panne', 'État', 'Déclaré le', 'Par', 'Origine', 'Délégué concerné', 'Réparé le', 'Réparé par', 'Note', 'Coût (FCFA)'],
+                lignes: liste.map(p => [p.materiel.designation, p.materiel.codeUnique, p.description, STATUTS[p.statut].texte,
+                    dateExport(p.dateDeclaration), p.declareePar, ORIGINES[p.origine], p.delegueConcerne || '',
+                    dateExport(p.dateReparation), p.repareePar || '', p.noteReparation || '', p.coutReparation ?? '']),
+                nomFichier: 'materiel-gate'
+            };
+        }
+    </script>
+</body>
+</html>

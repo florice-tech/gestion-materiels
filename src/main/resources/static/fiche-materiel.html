@@ -28,6 +28,13 @@
                 <h2 id="titreParcours" class="font-semibold text-slate-800 text-lg">Parcours</h2>
                 <p id="aideParcours" class="text-sm text-slate-500 mb-5">Qui a eu ce matériel, quand, et comment il est passé de main en main. Le plus récent en premier.</p>
                 <div id="parcours" class="space-y-4"></div>
+                <div id="zonePannes" class="hidden mt-6 pt-5 border-t border-slate-200">
+                    <div class="flex items-center justify-between gap-2 mb-3">
+                        <h2 class="font-semibold text-slate-800 text-lg">Pannes et réparations</h2>
+                        <a href="pannes.html" class="text-sm text-blue-600">Matériel gâté</a>
+                    </div>
+                    <div id="pannes" class="space-y-2"></div>
+                </div>
             </section>
             <aside class="space-y-5">
                 <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
@@ -61,6 +68,7 @@
                 return;
             }
             gestionnairePhotos(document.getElementById('photos'), id);
+            if (materiel.typeGestion === 'DURABLE') afficherPannes(id);
             const parcours = await appelApi(`/materiels/${id}/parcours`);
             afficherEntete(materiel, parcours);
             afficherParcours(parcours);
@@ -141,6 +149,22 @@
                 <div class="flex justify-between"><span class="text-slate-500">Délégués différents</span><strong class="text-slate-800">${personnes}</strong></div>
                 <div class="flex justify-between"><span class="text-slate-500">Transferts entre délégués</span><strong class="text-slate-800">${transferts}</strong></div>
                 <div class="flex justify-between"><span class="text-slate-500">Retours avec problème</span><strong class="${problemes ? 'text-red-700' : 'text-slate-800'}">${problemes}</strong></div>`;
+        }
+
+        async function afficherPannes(id) {
+            const liste = await appelApi(`/materiels/${id}/pannes`);
+            if (!Array.isArray(liste) || !liste.length) return;
+            const ETATS = { EN_PANNE: ['En panne', 'bg-red-100 text-red-700'], HORS_SERVICE: ['Hors service', 'bg-slate-200 text-slate-700'], REPAREE: ['Réparé', 'bg-green-100 text-green-700'] };
+            document.getElementById('pannes').innerHTML = liste.map(p => `
+                <div class="p-3 rounded-lg border ${p.statut === 'REPAREE' ? 'border-slate-200' : 'border-red-200 bg-red-50'}">
+                    <div class="flex items-start justify-between gap-2">
+                        <span class="text-sm text-slate-800">« ${echapper(p.description)} »</span>
+                        ${badge({ texte: ETATS[p.statut][0], classe: ETATS[p.statut][1] })}
+                    </div>
+                    <div class="text-xs text-slate-500 mt-1">Déclaré le ${formaterDate(p.dateDeclaration)} par ${echapper(p.declareePar)}${p.delegueConcerne ? `, au retour de ${echapper(p.delegueConcerne)}` : ''}</div>
+                    ${p.dateReparation ? `<div class="text-xs text-green-700">Réparé le ${formaterDate(p.dateReparation)} par ${echapper(p.repareePar || '')}${p.noteReparation ? ` : ${echapper(p.noteReparation)}` : ''}${p.coutReparation ? ` · ${Number(p.coutReparation).toLocaleString('fr-FR')} FCFA` : ''}</div>` : ''}
+                </div>`).join('');
+            document.getElementById('zonePannes').classList.remove('hidden');
         }
     </script>
 </body>

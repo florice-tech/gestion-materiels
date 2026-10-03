@@ -33,7 +33,8 @@ public class StatistiqueService {
 
     public record Compteurs(long demandesEnAttente, long empruntsEnCours, long empruntsEnRetard,
                             long sortiesAujourdhui, long retoursAujourdhui, long reservationsAujourdhui,
-                            long transfertsEnAttente, long materielsSortis) {
+                            long transfertsEnAttente, long materielsSortis,
+                            long pannesOuvertes, long manquesOuverts) {
     }
 
     /** Un matériel durable actuellement entre les mains d'un délégué. */
@@ -76,10 +77,15 @@ public class StatistiqueService {
     private final TransfertRepository transfertRepository;
     private final AgentRepository agentRepository;
     private final DelegueRepository delegueRepository;
+    private final PanneService panneService;
+    private final ManqueService manqueService;
 
     public StatistiqueService(EmpruntRepository empruntRepository, MaterielRepository materielRepository,
                               DetailEmpruntRepository detailEmpruntRepository, TransfertRepository transfertRepository,
-                              AgentRepository agentRepository, DelegueRepository delegueRepository) {
+                              AgentRepository agentRepository, DelegueRepository delegueRepository,
+                              PanneService panneService, ManqueService manqueService) {
+        this.panneService = panneService;
+        this.manqueService = manqueService;
         this.empruntRepository = empruntRepository;
         this.materielRepository = materielRepository;
         this.detailEmpruntRepository = detailEmpruntRepository;
@@ -112,7 +118,9 @@ public class StatistiqueService {
                 empruntRepository.countByDateRetourGreaterThanEqual(debutJournee),
                 reservationsDuJour.size(),
                 transfertRepository.countByStatut(Transfert.Statut.EN_ATTENTE),
-                enCirculation.size());
+                enCirculation.size(),
+                panneService.nombreOuvertes(),
+                manqueService.nombreOuverts());
 
         EtatParc parc = new EtatParc(
                 materielRepository.countByTypeGestion(TypeGestion.DURABLE),

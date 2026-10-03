@@ -80,6 +80,9 @@ public class SecuriteConfig {
                 .requestMatchers(HttpMethod.GET, "/api/materiels", "/api/salles", "/api/categories",
                         "/api/disponibilites", "/api/config", "/api/scan/*", "/api/emprunts/*",
                         "/api/photos/**", "/api/materiels/*/photos", "/api/salles/*/situation", "/api/confiance/moi").authenticated()
+                // Matériel manquant : signaler (délégués et agents), voir ses signalements (délégués)
+                .requestMatchers(HttpMethod.POST, "/api/manques").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/manques/mes-signalements").hasRole("DELEGUE")
                 .requestMatchers("/api/notifications/**").authenticated()
                 // Mon compte, déconnexion : tout utilisateur connecté
                 .requestMatchers("/api/auth/**").authenticated()
