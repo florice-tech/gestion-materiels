@@ -82,6 +82,18 @@
 	</dependencies>
 
 	<build>
+		<resources>
+			<!-- Configuration et migrations du serveur -->
+			<resource>
+				<directory>src/main/resources</directory>
+			</resource>
+			<!-- Le frontend (dossier ../frontend) est copié dans l'application sous /static :
+			     le serveur le sert à l'adresse http://localhost:8080/ et il est inclus dans le .jar -->
+			<resource>
+				<directory>${project.basedir}/../frontend</directory>
+				<targetPath>static</targetPath>
+			</resource>
+		</resources>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
