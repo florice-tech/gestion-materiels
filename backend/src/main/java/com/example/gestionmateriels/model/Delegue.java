@@ -26,6 +26,10 @@ public class Delegue {
     @Column(nullable = false, unique = true)
     private String identifiant;
 
+    // Matricule (numéro d'étudiant) du délégué, en majuscules
+    @Column(length = 50, unique = true)
+    private String matricule;
+
     // Haché avec BCrypt, jamais renvoyé dans les réponses JSON
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @Column(nullable = false)
@@ -70,6 +74,9 @@ public class Delegue {
 
     public String getFiliereNiveau() { return filiereNiveau; }
     public void setFiliereNiveau(String filiereNiveau) { this.filiereNiveau = filiereNiveau; }
+
+    public String getMatricule() { return matricule; }
+    public void setMatricule(String matricule) { this.matricule = matricule; }
 
     public String getIdentifiant() { return identifiant; }
     public void setIdentifiant(String identifiant) { this.identifiant = identifiant; }

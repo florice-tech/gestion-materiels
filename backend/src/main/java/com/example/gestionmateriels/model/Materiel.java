@@ -23,6 +23,11 @@ public class Materiel {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Verrou optimiste : deux opérations simultanées sur le même matériel ne peuvent pas toutes deux réussir
+    @Version
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    private Long version;
+
     @Column(nullable = false)
     private String designation;
 
@@ -70,6 +75,8 @@ public class Materiel {
                 && quantiteStock != null && seuilAlerte != null
                 && quantiteStock <= seuilAlerte;
     }
+
+    public Long getVersion() { return version; }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

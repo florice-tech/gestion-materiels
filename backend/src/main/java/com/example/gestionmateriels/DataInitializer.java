@@ -46,6 +46,8 @@ public class DataInitializer {
             }
 
             if (agentRepo.count() == 0) {
+                LOG.warn("Comptes de démonstration créés (mdaniel, mguillaume, pkodjo) : changez leurs mots de passe "
+                        + "avant toute mise en service réelle.");
                 agentRepo.save(new Agent("M. Daniel", "Surveillant général", "mdaniel",
                         encoder.encode("daniel2026"), true));
                 agentRepo.save(new Agent("M. Guillaume", "Surveillant", "mguillaume",
@@ -53,7 +55,9 @@ public class DataInitializer {
             }
 
             if (delegueRepo.count() == 0) {
-                delegueRepo.save(new Delegue("Pascal Kodjo", "L2 Economie", "pkodjo", encoder.encode("pascal2026")));
+                Delegue pascal = new Delegue("Pascal Kodjo", "L2 Economie", "pkodjo", encoder.encode("pascal2026"));
+                pascal.setMatricule("LBS-0001");
+                delegueRepo.save(pascal);
             }
 
             if (materielRepo.count() == 0) {

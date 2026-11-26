@@ -2,11 +2,15 @@ package com.example.gestionmateriels.controller;
 
 import com.example.gestionmateriels.dto.ActifRequest;
 import com.example.gestionmateriels.dto.AgentRequest;
+import com.example.gestionmateriels.dto.IdentifiantRequest;
+import com.example.gestionmateriels.dto.InscriptionDelegueRequest;
+import com.example.gestionmateriels.dto.MatriculeRequest;
 import com.example.gestionmateriels.dto.MotDePasseRequest;
 import com.example.gestionmateriels.model.Agent;
 import com.example.gestionmateriels.model.Delegue;
 import com.example.gestionmateriels.securite.UtilisateurConnecte;
 import com.example.gestionmateriels.service.CompteService;
+import com.example.gestionmateriels.service.PresenceService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -20,9 +24,11 @@ import java.util.Map;
 public class AdminController {
 
     private final CompteService compteService;
+    private final PresenceService presenceService;
 
-    public AdminController(CompteService compteService) {
+    public AdminController(CompteService compteService, PresenceService presenceService) {
         this.compteService = compteService;
+        this.presenceService = presenceService;
     }
 
     // ---------- Agents ----------
@@ -59,7 +65,39 @@ public class AdminController {
         return Reponses.ok("Mot de passe réinitialisé.");
     }
 
+    @PatchMapping("/agents/{id}/identifiant")
+    public ResponseEntity<Map<String, Object>> identifiantAgent(@PathVariable Long id,
+                                                                @RequestBody IdentifiantRequest requete) {
+        return Reponses.ok("Identifiant modifié.", "agent", compteService.changerIdentifiantAgent(id, requete.identifiant()));
+    }
+
+    // ---------- Présences en ligne ----------
+
+    @GetMapping("/presences")
+    public Map<String, Object> presences() {
+        return Map.of("success", true, "data", presenceService.enLigne());
+    }
+
     // ---------- Délégués ----------
+
+    @PostMapping("/delegues")
+    public ResponseEntity<Map<String, Object>> creerDelegue(@RequestBody InscriptionDelegueRequest requete) {
+        Delegue d = compteService.inscrireDelegue(requete.nom(), requete.filiereNiveau(), requete.matricule(),
+                requete.identifiant(), requete.motDePasse(), requete.telephone());
+        return Reponses.ok("Compte délégué créé.", "delegue", d);
+    }
+
+    @PatchMapping("/delegues/{id}/identifiant")
+    public ResponseEntity<Map<String, Object>> identifiantDelegue(@PathVariable Long id,
+                                                                  @RequestBody IdentifiantRequest requete) {
+        return Reponses.ok("Identifiant modifié.", "delegue", compteService.changerIdentifiantDelegue(id, requete.identifiant()));
+    }
+
+    @PatchMapping("/delegues/{id}/matricule")
+    public ResponseEntity<Map<String, Object>> matriculeDelegue(@PathVariable Long id,
+                                                                @RequestBody MatriculeRequest requete) {
+        return Reponses.ok("Matricule enregistré.", "delegue", compteService.changerMatricule(id, requete.matricule()));
+    }
 
     @GetMapping("/delegues")
     public List<Delegue> delegues() {

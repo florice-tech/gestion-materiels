@@ -80,4 +80,30 @@ class CompteServiceTests {
         assertThrows(OperationException.class, () -> compteService.modifierAgent(moi.getId(),
                 new AgentRequest("M. Daniel", null, null, null, false), moi));
     }
+
+    @Test
+    void matriculeObligatoireEtUnique() {
+        assertThrows(OperationException.class,
+                () -> compteService.inscrireDelegue("Awa Diallo", "L1 Droit", " ", "adiallo", "secret123", null));
+        Delegue d = compteService.inscrireDelegue("Awa Diallo", "L1 Droit", "lbs-2026-01", "adiallo", "secret123", null);
+        assertEquals("LBS-2026-01", d.getMatricule());
+        OperationException e = assertThrows(OperationException.class,
+                () -> compteService.inscrireDelegue("Bob", "L1 Droit", "LBS-2026-01", "bob", "secret123", null));
+        assertTrue(e.getMessage().contains("matricule"));
+    }
+
+    @Test
+    void modificationDeLIdentifiant() {
+        Delegue d = compteService.inscrireDelegue("Awa Diallo", "L1 Droit", "LBS-77", "adiallo", "secret123", null);
+        assertEquals("awa.diallo", compteService.changerIdentifiantDelegue(d.getId(), "awa.diallo").getIdentifiant());
+        assertThrows(OperationException.class, () -> compteService.changerIdentifiantDelegue(d.getId(), "mdaniel"));
+        assertThrows(OperationException.class, () -> compteService.changerIdentifiantDelegue(d.getId(), "x"));
+    }
+
+    @Test
+    void motDePasseOublieSansEffetPourIdentifiantInconnu() {
+        assertDoesNotThrow(() -> compteService.demanderMotDePasseOublie("inconnu-xyz"));
+        assertDoesNotThrow(() -> compteService.demanderMotDePasseOublie("pkodjo"));
+        assertThrows(OperationException.class, () -> compteService.demanderMotDePasseOublie("  "));
+    }
 }

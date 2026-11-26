@@ -3,6 +3,8 @@ package com.example.gestionmateriels.controller;
 import com.example.gestionmateriels.dto.ChangementMotDePasseRequest;
 import com.example.gestionmateriels.dto.InscriptionDelegueRequest;
 import com.example.gestionmateriels.dto.LoginRequest;
+import com.example.gestionmateriels.dto.MotDePasseOublieRequest;
+import com.example.gestionmateriels.securite.LoginAttemptService;
 import com.example.gestionmateriels.securite.UtilisateurConnecte;
 import com.example.gestionmateriels.service.CompteService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,10 +37,12 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final SecurityContextRepository securityContextRepository;
     private final CompteService compteService;
+    private final LoginAttemptService tentatives;
 
     public AuthController(AuthenticationManager authenticationManager,
                           SecurityContextRepository securityContextRepository,
-                          CompteService compteService) {
+                          CompteService compteService, LoginAttemptService tentatives) {
+        this.tentatives = tentatives;
         this.authenticationManager = authenticationManager;
         this.securityContextRepository = securityContextRepository;
         this.compteService = compteService;
@@ -50,6 +54,12 @@ public class AuthController {
         String identifiant = requete.identifiant() == null ? "" : requete.identifiant().trim();
         String motDePasse = requete.motDePasse() == null ? "" : requete.motDePasse();
 
+        String adresse = request.getRemoteAddr();
+        long attente = tentatives.minutesRestantes(identifiant, adresse);
+        if (attente > 0) {
+            return Reponses.erreur(429, "Trop de tentatives de connexion. Réessayez dans " + attente + " minute(s).");
+        }
+
         Authentication authentification;
         try {
             authentification = authenticationManager.authenticate(
@@ -57,10 +67,13 @@ public class AuthController {
         } catch (DisabledException e) {
             return Reponses.erreur(401, "Ce compte est désactivé. Contactez un administrateur.");
         } catch (BadCredentialsException e) {
+            tentatives.echec(identifiant, adresse);
             return Reponses.erreur(401, "Identifiant ou mot de passe incorrect.");
         } catch (AuthenticationException e) {
+            tentatives.echec(identifiant, adresse);
             return Reponses.erreur(401, "Connexion impossible.");
         }
+        tentatives.succes(identifiant, adresse);
 
         // Nouvel identifiant de session à la connexion (protection contre la fixation de session)
         HttpSession session = request.getSession(false);
@@ -88,9 +101,17 @@ public class AuthController {
 
     @PostMapping("/inscription")
     public ResponseEntity<Map<String, Object>> inscrire(@RequestBody InscriptionDelegueRequest requete) {
-        compteService.inscrireDelegue(requete.nom(), requete.filiereNiveau(),
+        compteService.inscrireDelegue(requete.nom(), requete.filiereNiveau(), requete.matricule(),
                 requete.identifiant(), requete.motDePasse(), requete.telephone());
         return Reponses.ok("Compte créé avec succès. Vous pouvez maintenant vous connecter.");
+    }
+
+    /** « Mot de passe oublié » : la réponse est la même que l'identifiant existe ou non. */
+    @PostMapping("/mot-de-passe-oublie")
+    public ResponseEntity<Map<String, Object>> motDePasseOublie(@RequestBody MotDePasseOublieRequest requete) {
+        compteService.demanderMotDePasseOublie(requete.identifiant());
+        return Reponses.ok("Demande envoyée. Un administrateur du poste service études va réinitialiser "
+                + "votre mot de passe et vous transmettre vos nouveaux identifiants.");
     }
 
     public record TelephoneRequest(String telephone) {

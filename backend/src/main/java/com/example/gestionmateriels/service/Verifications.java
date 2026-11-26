@@ -3,7 +3,7 @@ package com.example.gestionmateriels.service;
 /** Petites vérifications de saisie communes aux services. */
 final class Verifications {
 
-    static final int LONGUEUR_MIN_MOT_DE_PASSE = 6;
+    static final int LONGUEUR_MIN_MOT_DE_PASSE = 8;
 
     private Verifications() {
     }
@@ -53,6 +53,16 @@ final class Verifications {
             throw new OperationException("Numéro invalide : 8 chiffres pour un numéro togolais, ou le numéro complet avec l'indicatif.");
         }
         return chiffres;
+    }
+
+    /** Matricule : 3 à 30 caractères (lettres, chiffres, tiret, point, barre), rangé en majuscules. */
+    static String matriculeValide(String matricule) {
+        String m = obligatoire(matricule, "Le matricule est obligatoire.").toUpperCase();
+        if (!m.matches("[A-Z0-9][A-Z0-9._/\\-]{2,29}")) {
+            throw new OperationException(
+                    "Le matricule doit faire 3 à 30 caractères : lettres, chiffres, point, tiret ou barre.");
+        }
+        return m;
     }
 
     static String identifiantValide(String identifiant) {

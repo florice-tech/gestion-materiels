@@ -28,8 +28,8 @@ public class PhotoController {
     }
 
     @GetMapping("/photos/{id}")
-    public ResponseEntity<byte[]> image(@PathVariable Long id) {
-        Photo photo = photoService.lire(id);
+    public ResponseEntity<byte[]> image(@AuthenticationPrincipal UtilisateurConnecte moi, @PathVariable Long id) {
+        Photo photo = photoService.lirePour(id, moi);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(photo.getTypeMime()))
                 .cacheControl(CacheControl.maxAge(Duration.ofDays(7)).cachePrivate())

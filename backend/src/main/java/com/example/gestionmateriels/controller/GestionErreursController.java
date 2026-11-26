@@ -48,6 +48,12 @@ public class GestionErreursController {
         return Reponses.erreur(409, "Opération impossible : elle entre en conflit avec des données existantes.");
     }
 
+    // Deux personnes ont agi en même temps sur le même matériel
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, Object>> conflit(org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+        return Reponses.erreur(409, "Quelqu'un vient de modifier ce matériel en même temps. Rechargez la page et réessayez.");
+    }
+
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<Map<String, Object>> methode(HttpRequestMethodNotSupportedException e) {
         return Reponses.erreur(405, "Méthode non autorisée pour cette adresse.");

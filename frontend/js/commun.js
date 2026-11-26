@@ -123,6 +123,7 @@ const NAVIGATION = {
         { groupe: 'Administration', liens: [
             { cle: 'parametres', texte: 'Salles et catégories', lien: 'parametres.html', icone: 'parametres' },
             { cle: 'comptes', texte: 'Comptes et confiance', lien: 'comptes.html', icone: 'comptes', admin: true },
+            { cle: 'presences', texte: 'Présences en ligne', lien: 'presences.html', icone: 'comptes', admin: true },
             { cle: 'affluence', texte: 'Heures chargées', lien: 'affluence.html', icone: 'affluence', admin: true }
         ] }
     ],
@@ -130,6 +131,7 @@ const NAVIGATION = {
         { groupe: 'Mon espace', liens: [
             { cle: 'accueil', texte: 'Accueil', lien: 'accueil-delegue.html', icone: 'accueil' },
             { cle: 'scan', texte: 'Scanner un matériel', lien: 'scan.html', icone: 'scan' },
+            { cle: 'liste-materiel', texte: 'Liste du matériel', lien: 'liste-materiel.html', icone: 'catalogue' },
             { cle: 'demande', texte: 'Demander du matériel', lien: 'demande-emprunt.html', icone: 'demande' },
             { cle: 'reservation', texte: 'Réserver à l\'avance', lien: 'reservation.html', icone: 'reservation' },
             { cle: 'mes-emprunts', texte: 'Mes emprunts', lien: 'mes-emprunts.html', icone: 'emprunts' }
@@ -238,6 +240,8 @@ function construireEntete(moi, pageActive) {
     });
 
     initialiserNotifications();
+    // Signal de présence : indique à l'administration que la personne est en ligne
+    setInterval(() => { if (!document.hidden) appelApi('/auth/moi', { sansRedirection: true }); }, 60000);
 }
 
 // ---------------------------------------------------------------------------
@@ -657,13 +661,26 @@ function lienWhatsApp(telephone, message) {
     return `https://wa.me/${encodeURIComponent(telephone)}?text=${encodeURIComponent(message)}`;
 }
 
+/** Premier prénom ou nom pour s'adresser à la personne. */
+function prenomDe(nom) {
+    return (nom || '').trim().split(/\s+/)[0];
+}
+
+/** Message envoyé au délégué (ou à l'agent) avec ses identifiants de connexion. */
+function messageIdentifiants({ nom, identifiant, motDePasse }) {
+    return `Bonjour ${prenomDe(nom)}, ici le poste service études de Lomé Business School.\n`
+        + `Voici votre identifiant de connexion : ${identifiant}\n`
+        + `et votre mot de passe : ${motDePasse}\n`
+        + `Vous pourrez changer votre mot de passe dans « Mon compte ».`;
+}
+
 /** Message de rappel poli, adapté au retard ou à l'échéance proche. */
 function messageRappel({ delegue, designation, code, heure, enRetard }) {
     const prenom = (delegue || '').split(/\s+/)[0];
     const quoi = `${designation}${code ? ` (${code})` : ''}`;
     return enRetard
-        ? `Bonjour ${prenom}, ici le poste de surveillance de Lomé Business School. Le matériel ${quoi} était attendu${heure ? ` à ${heure}` : ''}. Merci de le rapporter au poste dès que possible.`
-        : `Bonjour ${prenom}, ici le poste de surveillance de Lomé Business School. Petit rappel : le matériel ${quoi} est à rendre${heure ? ` avant ${heure}` : ''}. Merci !`;
+        ? `Bonjour ${prenom}, ici le poste service études de Lomé Business School. Le matériel ${quoi} était attendu${heure ? ` à ${heure}` : ''}. Merci de le rapporter au poste dès que possible.`
+        : `Bonjour ${prenom}, ici le poste service études de Lomé Business School. Petit rappel : le matériel ${quoi} est à rendre${heure ? ` avant ${heure}` : ''}. Merci !`;
 }
 
 /** Bouton WhatsApp (vert) ou rien si le délégué n'a pas donné de numéro. */

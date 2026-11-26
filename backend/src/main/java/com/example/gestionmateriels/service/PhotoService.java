@@ -5,6 +5,7 @@ import com.example.gestionmateriels.model.Materiel;
 import com.example.gestionmateriels.model.Photo;
 import com.example.gestionmateriels.repository.MaterielRepository;
 import com.example.gestionmateriels.repository.PhotoRepository;
+import com.example.gestionmateriels.securite.UtilisateurConnecte;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -63,6 +64,21 @@ public class PhotoService {
     @Transactional(readOnly = true)
     public Photo lire(Long id) {
         return photoRepository.findById(id).orElseThrow(() -> OperationException.introuvable("Photo introuvable."));
+    }
+
+    /**
+     * Lecture par un utilisateur connecté : les photos du catalogue sont visibles par tous,
+     * une photo de retour seulement par les agents et par le délégué concerné.
+     */
+    @Transactional(readOnly = true)
+    public Photo lirePour(Long id, UtilisateurConnecte moi) {
+        Photo photo = lire(id);
+        DetailEmprunt ligne = photo.getDetailEmprunt();
+        if (ligne != null && moi != null && moi.estDelegue()
+                && !ligne.getEmprunt().getDelegue().getId().equals(moi.getId())) {
+            throw OperationException.introuvable("Photo introuvable.");
+        }
+        return photo;
     }
 
     @Transactional(readOnly = true)

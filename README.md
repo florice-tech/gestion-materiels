@@ -76,6 +76,16 @@ ou écrire `app.url-publique=http://192.168.1.20:8080` dans `backend/src/main/re
 | Surveillant | `mguillaume` | `guillaume2026` |
 | Délégué | `pkodjo` | `pascal2026` |
 
+> **Avant une mise en service réelle** : les comptes de démonstration ci-dessus ont des mots de passe connus. Changez-les (ou désactivez-les) dans « Comptes », et définissez `DB_PASSWORD`. Derrière HTTPS, ajoutez `COOKIE_SECURE=true`.
+
+## Sécurité (résumé)
+- Mot de passe : 8 caractères minimum, haché BCrypt. Après 5 échecs de connexion (même identifiant, même adresse), la connexion est bloquée 5 minutes.
+- Un compte désactivé, ou qui perd ses droits d'administrateur, est déconnecté dès son prochain appel au serveur.
+- Les photos de retour ne sont visibles que par les agents et par le délégué concerné.
+- Le même matériel ne peut pas être remis à deux personnes en même temps (verrou optimiste, script `V6`).
+- « Mot de passe oublié » : le poste service études reçoit une notification et réinitialise le mot de passe (Comptes), puis envoie les identifiants par WhatsApp.
+- « Présences en ligne » (administrateur) : liste des personnes connectées dans les 3 dernières minutes.
+
 ## Tests
 ```
 cd backend

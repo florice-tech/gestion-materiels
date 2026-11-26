@@ -1,5 +1,6 @@
 package com.example.gestionmateriels.securite;
 
+import com.example.gestionmateriels.service.PresenceService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -50,7 +51,8 @@ public class SecuriteConfig {
     }
 
     @Bean
-    public SecurityFilterChain filtreSecurite(HttpSecurity http, SecurityContextRepository contextes) throws Exception {
+    public SecurityFilterChain filtreSecurite(HttpSecurity http, SecurityContextRepository contextes,
+                                              PresenceService presenceService) throws Exception {
         // Jeton CSRF "simple" (non masqué), lu par le JavaScript dans le cookie.
         // setCsrfRequestAttributeName(null) : le jeton est chargé à chaque requête, donc le cookie
         // est toujours présent dès la première page affichée.
@@ -64,7 +66,7 @@ public class SecuriteConfig {
                 .csrfTokenRequestHandler(gestionJeton))
             .authorizeHttpRequests(regles -> regles
                 // Connexion et inscription : ouvertes à tous
-                .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/inscription").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/inscription", "/api/auth/mot-de-passe-oublie").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/auth/moi").permitAll()
                 // Gestion des comptes : administrateurs uniquement
                 .requestMatchers("/api/admin/**", "/api/statistiques/affluence").hasRole("ADMIN")
@@ -99,8 +101,15 @@ public class SecuriteConfig {
             .logout(deconnexion -> deconnexion
                 .logoutUrl("/api/auth/logout")
                 .deleteCookies("JSESSIONID")
-                .logoutSuccessHandler((req, res, auth) ->
-                        repondre(res, HttpServletResponse.SC_OK, "Vous êtes déconnecté.")))
+                .logoutSuccessHandler((req, res, auth) -> {
+                    if (auth != null && auth.getPrincipal() instanceof UtilisateurConnecte moi) {
+                        presenceService.retirer(moi);
+                    }
+                    repondre(res, HttpServletResponse.SC_OK, "Vous êtes déconnecté.");
+                }))
+            .headers(h -> h
+                .referrerPolicy(r -> r.policy(org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN))
+                .contentTypeOptions(o -> { }))
             .formLogin(f -> f.disable())
             .httpBasic(b -> b.disable());
 

@@ -39,6 +39,16 @@ public class NotificationService {
         }
     }
 
+    /** Une notification pour chaque administrateur actif. */
+    public void notifierAdministrateurs(Categorie categorie, String titre, String message, String lien) {
+        for (Agent agent : agentRepository.findAll()) {
+            if (agent.isActif() && agent.isAdministrateur()) {
+                notificationRepository.save(new Notification(Destinataire.AGENT, agent.getId(),
+                        categorie, titre, message, lien));
+            }
+        }
+    }
+
     public void notifierDelegue(Delegue delegue, Categorie categorie, String titre, String message, String lien) {
         notificationRepository.save(new Notification(Destinataire.DELEGUE, delegue.getId(),
                 categorie, titre, message, lien));
