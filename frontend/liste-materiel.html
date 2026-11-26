@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="img/logo-lbs-icone.png">
+    <title>Liste du matériel - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/commun.js"></script>
+    <link rel="stylesheet" href="css/theme.css">
+</head>
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
+
+    <main class="max-w-5xl mx-auto p-4 md:p-6 space-y-5">
+        <div>
+            <h1 class="text-2xl md:text-3xl text-slate-800">Liste du matériel</h1>
+            <p class="text-sm text-slate-500 mt-1">Tout le matériel de l'école et sa disponibilité. Touchez un matériel libre pour le récupérer.</p>
+        </div>
+
+        <div class="flex flex-wrap gap-3">
+            <input id="recherche" type="search" placeholder="Rechercher un matériel..." class="flex-1 min-w-[12rem] px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <label class="inline-flex items-center gap-2 text-sm text-slate-700"><input id="seulementLibres" type="checkbox" class="w-4 h-4"> Seulement ce qui est disponible</label>
+        </div>
+
+        <div id="liste" class="space-y-5"></div>
+        <p class="text-sm text-slate-500">Il manque quelque chose ? <a href="demande-emprunt.html" class="text-blue-600">Faites une demande au poste</a> ou signalez-le depuis votre accueil.</p>
+    </main>
+
+    <script>
+        let materiels = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initPage({ type: 'DELEGUE', page: 'liste-materiel' });
+            document.getElementById('recherche').addEventListener('input', afficher);
+            document.getElementById('seulementLibres').addEventListener('change', afficher);
+            const r = await appelApi('/materiels');
+            materiels = Array.isArray(r) ? r : [];
+            afficher();
+            setInterval(async () => { const x = await appelApi('/materiels'); if (Array.isArray(x)) { materiels = x; afficher(); } }, 30000);
+        });
+
+        function libre(m) {
+            return m.typeGestion === 'DURABLE' ? m.statut === 'DISPONIBLE' : m.quantiteStock > 0;
+        }
+
+        function afficher() {
+            const texte = document.getElementById('recherche').value.toLowerCase().trim();
+            const libres = document.getElementById('seulementLibres').checked;
+            const filtres = materiels.filter(m => (!texte || m.designation.toLowerCase().includes(texte)) && (!libres || libre(m)));
+            const zone = document.getElementById('liste');
+            if (!filtres.length) { zone.innerHTML = etatVide(materiels.length ? 'Aucun matériel ne correspond.' : 'Aucun matériel dans le catalogue pour le moment.'); return; }
+            const groupes = {};
+            filtres.forEach(m => (groupes[m.categorie.nom] = groupes[m.categorie.nom] || []).push(m));
+            zone.innerHTML = Object.keys(groupes).sort().map(nom => `
+                <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                    <h2 class="font-semibold text-slate-800 mb-3">${echapper(nom.charAt(0) + nom.slice(1).toLowerCase())}</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">${groupes[nom].map(ligne).join('')}</div>
+                </section>`).join('');
+        }
+
+        function ligne(m) {
+            const dispo = libre(m);
+            const etat = m.typeGestion === 'DURABLE'
+                ? badge(LABELS_STATUT_MATERIEL[m.statut] || { texte: m.statut, classe: 'bg-slate-100 text-slate-600' })
+                : badge(m.quantiteStock > 0 ? { texte: `${m.quantiteStock} en stock`, classe: 'bg-green-100 text-green-700' } : { texte: 'Épuisé', classe: 'bg-slate-200 text-slate-600' });
+            const contenu = `<span class="min-w-0"><span class="block font-medium text-slate-800 truncate">${echapper(m.designation)}</span>
+                <span class="block text-xs text-slate-400">${echapper(m.codeUnique || '')}</span></span>${etat}`;
+            const classe = 'flex items-center justify-between gap-3 p-3 border rounded-lg text-sm';
+            return dispo && m.typeGestion === 'DURABLE' && m.codeUnique
+                ? `<a href="scan.html?code=${encodeURIComponent(m.codeUnique)}" class="${classe} border-slate-200 hover:border-blue-300" style="text-decoration:none">${contenu}</a>`
+                : `<div class="${classe} border-slate-100 ${dispo ? '' : 'bg-slate-50 opacity-70'}">${contenu}</div>`;
+        }
+    </script>
+</body>
+</html>

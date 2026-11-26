@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="img/logo-lbs-icone.png">
+    <title>Mot de passe oublié - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/commun.js"></script>
+    <link rel="stylesheet" href="css/theme.css">
+</head>
+<body class="bg-slate-100 font-sans min-h-screen flex items-center justify-center p-6">
+
+    <div class="max-w-md w-full bg-white rounded-xl shadow-md border border-slate-200 overflow-hidden">
+        <div class="bg-blue-600 px-6 py-5 text-white text-center">
+            <div id="logo" class="flex justify-center mb-3"></div>
+            <h1 class="titre-serif text-2xl">Mot de passe oublié</h1>
+            <p class="text-blue-100 text-sm mt-1">Lomé Business School</p>
+        </div>
+
+        <form id="formOubli" class="p-6 space-y-4">
+            <p class="text-sm text-slate-600">Saisissez votre identifiant. Le poste service études sera prévenu, réinitialisera votre mot de passe et vous enverra vos nouveaux identifiants (par WhatsApp si vous avez donné votre numéro).</p>
+            <div id="messageZone" class="hidden"></div>
+            <div>
+                <label for="identifiant" class="block text-sm font-medium text-slate-700 mb-1">Identifiant</label>
+                <input type="text" id="identifiant" autocomplete="username" autofocus required
+                       class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+            <button type="submit" id="btnEnvoyer" class="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-medium py-2.5 rounded-lg text-sm">
+                Envoyer la demande
+            </button>
+            <p class="text-center text-sm text-slate-500">
+                <a href="login.html" class="text-blue-600 hover:underline font-medium">Retour à la connexion</a>
+            </p>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('logo').innerHTML = logoHtml('h-12');
+            document.getElementById('formOubli').addEventListener('submit', async e => {
+                e.preventDefault();
+                const bouton = document.getElementById('btnEnvoyer');
+                bouton.disabled = true;
+                const r = await appelApi('/auth/mot-de-passe-oublie', {
+                    method: 'POST', sansRedirection: true,
+                    body: { identifiant: document.getElementById('identifiant').value.trim() }
+                });
+                afficherMessage('messageZone', r.message, r.success);
+                bouton.disabled = false;
+            });
+        });
+    </script>
+</body>
+</html>

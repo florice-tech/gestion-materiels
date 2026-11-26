@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="img/logo-lbs-icone.png">
+    <title>Comptes - Gestion Matériel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/commun.js"></script>
+    <link rel="stylesheet" href="css/theme.css">
+</head>
+<body class="bg-slate-100 font-sans min-h-screen">
+    <div id="entete"></div>
+
+    <main class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+        <div>
+            <h1 class="text-2xl md:text-3xl text-slate-800">Comptes et confiance</h1>
+            <p class="text-sm text-slate-500">Un compte désactivé ne peut plus se connecter ; son historique est conservé.</p>
+        </div>
+
+        <div id="messageZone" class="hidden"></div>
+
+        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-wrap justify-between items-center gap-2">
+                <h2 class="font-semibold text-slate-800">Agents de surveillance</h2>
+                <button id="btnNouvelAgent" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2 rounded-lg">+ Nouvel agent</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead><tr class="border-b border-slate-200 text-slate-500 text-xs uppercase">
+                        <th class="py-2 pr-3">Nom</th><th class="py-2 pr-3">Identifiant</th><th class="py-2 pr-3">Intitulé</th>
+                        <th class="py-2 pr-3">Droits</th><th class="py-2 pr-3">État</th><th class="py-2 text-right">Actions</th>
+                    </tr></thead>
+                    <tbody id="tableAgents"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-wrap justify-between items-center gap-2">
+                <h2 class="font-semibold text-slate-800">Délégués</h2>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button id="btnNouveauDelegue" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2 rounded-lg">+ Nouveau délégué</button>
+                    <div id="exportDelegues"></div>
+                    <input id="filtreDelegues" type="search" placeholder="Rechercher..." class="px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                </div>
+            </div>
+            <p class="text-xs text-slate-400">Les délégués peuvent créer eux-mêmes leur compte, ou vous le créez ici et leur envoyez leurs identifiants par WhatsApp. Le score de confiance se calcule sur leurs retours des 90 derniers jours : après 3 retards, leurs réservations sont en pause jusqu'à ce que vous les débloquiez.</p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead><tr class="border-b border-slate-200 text-slate-500 text-xs uppercase">
+                        <th class="py-2 pr-3">Nom</th><th class="py-2 pr-3">Filière / niveau</th><th class="py-2 pr-3">WhatsApp</th>
+                        <th class="py-2 pr-3">Confiance</th><th class="py-2 pr-3">État</th><th class="py-2 text-right">Actions</th>
+                    </tr></thead>
+                    <tbody id="tableDelegues"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let moi = null;
+        let delegues = [];
+        function donneesExportDelegues() {
+            const texte = document.getElementById('filtreDelegues').value.toLowerCase().trim();
+            const liste = delegues.filter(d => !texte || `${d.nom} ${d.identifiant} ${d.matricule || ''} ${d.filiereNiveau}`.toLowerCase().includes(texte));
+            return {
+                titre: 'Délégués et confiance',
+                sousTitre: `Lomé Business School · score calculé sur les retours des 90 derniers jours`,
+                colonnes: ['Nom', 'Identifiant', 'Matricule', 'Filière et niveau', 'WhatsApp', 'Confiance', 'Score /100', 'Rendus à l\'heure', 'Retours', 'Retards', 'Compte'],
+                lignes: liste.map(d => {
+                    const c = confiances[d.id] || {};
+                    return [d.nom, d.identifiant, d.matricule || '', d.filiereNiveau, d.telephone ? '+' + d.telephone : '',
+                        c.bloque ? 'Réservations en pause' : (NIVEAUX_CONFIANCE[c.niveau] || {}).texte || '', c.score ?? '',
+                        c.aLHeure ?? '', c.retours ?? '', c.enRetard ?? '', d.actif ? 'Actif' : 'Désactivé'];
+                }),
+                nomFichier: 'delegues-confiance'
+            };
+        }
+        let confiances = {};
+
+        /** Sous le badge : la raison d'une pause, sinon le score et les retours à l'heure. */
+        function detailConfiance(c) {
+            if (!c) return '';
+            const ligne = t => `<span class="block text-[11px] text-slate-500 mt-0.5">${t}</span>`;
+            if (c.bloque) {
+                return ligne(c.motifBlocage.startsWith('Vous avez un matériel')
+                    ? 'Matériel en retard en ce moment : se débloque à son retour'
+                    : `${pluriel(c.enRetard, 'retard')} récents`);
+            }
+            if (!c.retours) return ligne('Aucun retour pour l\'instant');
+            return ligne(`Score ${c.score}/100 · ${c.aLHeure} sur ${pluriel(c.retours, 'retour')} à l'heure`);
+        }
+
+        const bouton = (texte, attribut, classe = 'text-blue-600') =>
+            `<button ${attribut} class="text-xs ${classe} hover:underline ml-3">${texte}</button>`;
+        const etat = actif => badge(actif
+            ? { texte: 'Actif', classe: 'bg-green-100 text-green-700' }
+            : { texte: 'Désactivé', classe: 'bg-slate-200 text-slate-600' });
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            barreExport('exportDelegues', donneesExportDelegues);
+            moi = await initPage({ type: 'AGENT', admin: true, page: 'comptes' });
+            document.getElementById('btnNouvelAgent').addEventListener('click', creerAgent);
+            document.getElementById('btnNouveauDelegue').addEventListener('click', creerDelegue);
+            document.getElementById('filtreDelegues').addEventListener('input', afficherDelegues);
+            chargerAgents();
+            chargerDelegues();
+        });
+
+        // ---------- Agents ----------
+
+        async function chargerAgents() {
+            const agents = await appelApi('/admin/agents');
+            const corps = document.getElementById('tableAgents');
+            corps.innerHTML = '';
+            agents.forEach(a => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-100';
+                tr.innerHTML = `
+                    <td class="py-2 pr-3 font-medium text-slate-800">${echapper(a.nom)}${a.id === moi.id ? ' <span class="text-xs text-slate-400">(vous)</span>' : ''}</td>
+                    <td class="py-2 pr-3 font-mono text-xs">${echapper(a.identifiant)}</td>
+                    <td class="py-2 pr-3 text-slate-600">${echapper(a.role)}</td>
+                    <td class="py-2 pr-3">${a.administrateur ? badge({ texte: 'Administrateur', classe: 'bg-purple-100 text-purple-700' }) : '<span class="text-xs text-slate-400">Agent</span>'}</td>
+                    <td class="py-2 pr-3">${etat(a.actif)}</td>
+                    <td class="py-2 text-right whitespace-nowrap">
+                        ${bouton('Modifier', 'data-modifier')}
+                        ${bouton('Identifiant', 'data-ident')}
+                        ${bouton('Mot de passe', 'data-mdp')}
+                        ${a.id === moi.id ? '' : bouton(a.actif ? 'Désactiver' : 'Réactiver', 'data-actif', a.actif ? 'text-red-600' : 'text-green-700')}
+                    </td>`;
+                tr.querySelector('[data-modifier]').addEventListener('click', () => modifierAgent(a));
+                tr.querySelector('[data-mdp]').addEventListener('click', () => motDePasse('agents', a));
+                tr.querySelector('[data-ident]').addEventListener('click', () => changerIdentifiant('agents', a, chargerAgents));
+                const btnActif = tr.querySelector('[data-actif]');
+                if (btnActif) btnActif.addEventListener('click', () => changerActif('agents', a, chargerAgents));
+                corps.appendChild(tr);
+            });
+        }
+
+        async function creerAgent() {
+            const v = await demanderFormulaire({
+                titre: 'Nouvel agent',
+                champs: [
+                    { nom: 'nom', label: 'Nom affiché', requis: true },
+                    { nom: 'identifiant', label: 'Identifiant de connexion', requis: true, aide: 'Lettres, chiffres, point, tiret (3 à 50).' },
+                    { nom: 'role', label: 'Intitulé du poste', valeur: 'Surveillant' },
+                    { nom: 'motDePasse', label: 'Mot de passe provisoire', type: 'password', requis: true, aide: '8 caractères minimum. À communiquer à l\'agent.' },
+                    { nom: 'administrateur', label: 'Administrateur (peut gérer les comptes)', type: 'checkbox' }
+                ],
+                bouton: 'Créer le compte'
+            });
+            if (!v) return;
+            const resultat = await appelApi('/admin/agents', { method: 'POST', body: v });
+            afficherMessage('messageZone', resultat.message, resultat.success);
+            if (resultat.success) afficherIdentifiants({ nom: v.nom, identifiant: v.identifiant.trim(), motDePasse: v.motDePasse });
+            chargerAgents();
+        }
+
+        async function modifierAgent(a) {
+            const v = await demanderFormulaire({
+                titre: `Modifier ${a.nom}`,
+                champs: [
+                    { nom: 'nom', label: 'Nom affiché', valeur: a.nom, requis: true },
+                    { nom: 'role', label: 'Intitulé du poste', valeur: a.role },
+                    { nom: 'administrateur', label: 'Administrateur (peut gérer les comptes)', type: 'checkbox', valeur: a.administrateur }
+                ],
+                bouton: 'Enregistrer'
+            });
+            if (!v) return;
+            const resultat = await appelApi(`/admin/agents/${a.id}`, { method: 'PUT', body: v });
+            afficherMessage('messageZone', resultat.message, resultat.success);
+            chargerAgents();
+        }
+
+        // ---------- Délégués ----------
+
+        async function chargerDelegues() {
+            const [liste, conf] = await Promise.all([appelApi('/admin/delegues'), appelApi('/confiance')]);
+            delegues = liste;
+            confiances = {};
+            (Array.isArray(conf) ? conf : []).forEach(c => confiances[c.delegueId] = c);
+            afficherDelegues();
+        }
+
+        function afficherDelegues() {
+            const texte = document.getElementById('filtreDelegues').value.toLowerCase().trim();
+            const liste = delegues.filter(d => !texte || `${d.nom} ${d.identifiant} ${d.matricule || ''} ${d.filiereNiveau}`.toLowerCase().includes(texte));
+            const corps = document.getElementById('tableDelegues');
+            if (!liste.length) { corps.innerHTML = `<tr><td colspan="6">${etatVide('Aucun délégué.')}</td></tr>`; return; }
+            corps.innerHTML = '';
+            liste.forEach(d => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-100';
+                const c = confiances[d.id];
+                const peutDebloquer = c && c.bloque && !c.motifBlocage.startsWith('Vous avez un matériel');
+                tr.innerHTML = `
+                    <td class="py-2 pr-3"><span class="font-medium text-slate-800">${echapper(d.nom)}</span><span class="block font-mono text-xs text-slate-400">${echapper(d.identifiant)}</span>
+                        <span class="block text-xs text-slate-400">Matricule : ${d.matricule ? echapper(d.matricule) : '—'}</span></td>
+                    <td class="py-2 pr-3 text-slate-600">${echapper(d.filiereNiveau)}</td>
+                    <td class="py-2 pr-3 whitespace-nowrap">${d.telephone ? `<span class="text-xs text-slate-600 mr-2">+${echapper(d.telephone)}</span>${boutonWhatsApp(d.telephone, `Bonjour ${d.nom.split(/\s+/)[0]}, ici le poste service études de Lomé Business School.`, true)}` : '<span class="text-xs text-slate-400">—</span>'}</td>
+                    <td class="py-2 pr-3">${badgeConfiance(c)}${detailConfiance(c)}</td>
+                    <td class="py-2 pr-3">${etat(d.actif)}</td>
+                    <td class="py-2 text-right whitespace-nowrap">
+                        ${peutDebloquer ? bouton('Débloquer', 'data-debloquer', 'text-green-700') : ''}
+                        ${bouton('Numéro', 'data-tel')}
+                        ${bouton('Matricule', 'data-matricule')}
+                        ${bouton('Identifiant', 'data-ident')}
+                        ${bouton('Mot de passe', 'data-mdp')}
+                        ${bouton(d.actif ? 'Désactiver' : 'Réactiver', 'data-actif', d.actif ? 'text-red-600' : 'text-green-700')}
+                    </td>`;
+                tr.querySelector('[data-mdp]').addEventListener('click', () => motDePasse('delegues', d));
+                tr.querySelector('[data-tel]').addEventListener('click', () => changerTelephone(d));
+                tr.querySelector('[data-matricule]').addEventListener('click', () => changerMatricule(d));
+                tr.querySelector('[data-ident]').addEventListener('click', () => changerIdentifiant('delegues', d, chargerDelegues));
+                tr.querySelector('[data-debloquer]')?.addEventListener('click', async () => {
+                    const r = await appelApi(`/confiance/${d.id}/debloquer`, { method: 'POST' });
+                    afficherMessage('messageZone', r.message, r.success);
+                    chargerDelegues();
+                });
+                tr.querySelector('[data-actif]').addEventListener('click', () => changerActif('delegues', d, chargerDelegues));
+                corps.appendChild(tr);
+            });
+        }
+
+        async function creerDelegue() {
+            const v = await demanderFormulaire({
+                titre: 'Nouveau délégué',
+                champs: [
+                    { nom: 'nom', label: 'Nom complet', requis: true },
+                    { nom: 'filiereNiveau', label: 'Filière et niveau', requis: true },
+                    { nom: 'matricule', label: 'Matricule', requis: true, aide: 'Numéro d\'étudiant du délégué.' },
+                    { nom: 'identifiant', label: 'Identifiant de connexion', requis: true, aide: 'Lettres, chiffres, point, tiret (3 à 50).' },
+                    { nom: 'telephone', label: 'Numéro WhatsApp', aide: 'Pour lui envoyer ses identifiants (ex. 90 12 34 56).' },
+                    { nom: 'motDePasse', label: 'Mot de passe provisoire', type: 'password', requis: true, aide: '8 caractères minimum.' }
+                ],
+                bouton: 'Créer le compte'
+            });
+            if (!v) return;
+            const r = await appelApi('/admin/delegues', { method: 'POST', body: v });
+            afficherMessage('messageZone', r.message, r.success);
+            if (r.success) afficherIdentifiants({ nom: v.nom, identifiant: v.identifiant.trim(), motDePasse: v.motDePasse, telephone: r.delegue.telephone });
+            chargerDelegues();
+        }
+
+        async function changerMatricule(d) {
+            const v = await demanderFormulaire({
+                titre: `Matricule de ${d.nom}`,
+                champs: [{ nom: 'matricule', label: 'Matricule', valeur: d.matricule || '', requis: true }],
+                bouton: 'Enregistrer'
+            });
+            if (!v) return;
+            const r = await appelApi(`/admin/delegues/${d.id}/matricule`, { method: 'PATCH', body: v });
+            afficherMessage('messageZone', r.message, r.success);
+            chargerDelegues();
+        }
+
+        async function changerIdentifiant(type, compte, recharger) {
+            const v = await demanderFormulaire({
+                titre: `Identifiant de ${compte.nom}`,
+                texte: 'La personne devra utiliser le nouvel identifiant à sa prochaine connexion.',
+                champs: [{ nom: 'identifiant', label: 'Identifiant de connexion', valeur: compte.identifiant, requis: true, aide: 'Lettres, chiffres, point, tiret (3 à 50).' }],
+                bouton: 'Enregistrer'
+            });
+            if (!v) return;
+            const r = await appelApi(`/admin/${type}/${compte.id}/identifiant`, { method: 'PATCH', body: v });
+            afficherMessage('messageZone', r.message, r.success);
+            recharger();
+        }
+
+        /** Fenêtre qui rappelle les identifiants à transmettre, avec le message WhatsApp déjà écrit. */
+        function afficherIdentifiants({ nom, identifiant, motDePasse, telephone }) {
+            const message = messageIdentifiants({ nom, identifiant, motDePasse });
+            const fond = document.createElement('div');
+            fond.className = 'fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4';
+            fond.innerHTML = `
+                <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-4" role="dialog" aria-modal="true">
+                    <h2 class="text-lg font-bold text-slate-800">Identifiants de ${echapper(nom)}</h2>
+                    <pre class="text-sm bg-slate-50 border border-slate-200 rounded-lg p-3 whitespace-pre-wrap">${echapper(message)}</pre>
+                    <p class="text-xs text-slate-500">Le mot de passe n'est plus consultable après cette fenêtre : envoyez-le maintenant.</p>
+                    <div class="flex flex-wrap justify-end gap-2">
+                        ${telephone ? boutonWhatsApp(telephone, message) : '<span class="text-xs text-slate-400 self-center">Pas de numéro WhatsApp enregistré.</span>'}
+                        <button data-copier class="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">Copier</button>
+                        <button data-fermer class="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white">Fermer</button>
+                    </div>
+                </div>`;
+            fond.querySelector('[data-fermer]').addEventListener('click', () => fond.remove());
+            fond.querySelector('[data-copier]').addEventListener('click', async e => {
+                try { await navigator.clipboard.writeText(message); e.target.textContent = 'Copié'; } catch (x) { e.target.textContent = 'Copie impossible'; }
+            });
+            document.body.appendChild(fond);
+        }
+
+        async function changerTelephone(d) {
+            const v = await demanderFormulaire({
+                titre: `Numéro WhatsApp de ${d.nom}`,
+                champs: [{ nom: 'telephone', label: 'Numéro', valeur: d.telephone || '', aide: '8 chiffres pour un numéro togolais (ex. 90 12 34 56). Laissez vide pour supprimer.' }],
+                bouton: 'Enregistrer'
+            });
+            if (!v) return;
+            const r = await appelApi(`/admin/delegues/${d.id}/telephone`, { method: 'PATCH', body: v });
+            afficherMessage('messageZone', r.message, r.success);
+            chargerDelegues();
+        }
+
+        // ---------- Actions communes ----------
+
+        async function motDePasse(type, compte) {
+            const v = await demanderFormulaire({
+                titre: `Nouveau mot de passe pour ${compte.nom}`,
+                champs: [{ nom: 'motDePasse', label: 'Mot de passe provisoire', type: 'password', requis: true, aide: '8 caractères minimum.' }],
+                bouton: 'Réinitialiser'
+            });
+            if (!v) return;
+            const resultat = await appelApi(`/admin/${type}/${compte.id}/mot-de-passe`, { method: 'POST', body: v });
+            afficherMessage('messageZone', resultat.message, resultat.success);
+            if (resultat.success) afficherIdentifiants({ nom: compte.nom, identifiant: compte.identifiant, motDePasse: v.motDePasse, telephone: compte.telephone });
+        }
+
+        async function changerActif(type, compte, recharger) {
+            const desactiver = compte.actif;
+            if (desactiver && !await confirmer('Désactiver le compte', `${compte.nom} ne pourra plus se connecter.`, 'Désactiver', true)) return;
+            const resultat = await appelApi(`/admin/${type}/${compte.id}/actif`, { method: 'PATCH', body: { actif: !desactiver } });
+            afficherMessage('messageZone', resultat.message, resultat.success);
+            recharger();
+        }
+    </script>
+</body>
+</html>
